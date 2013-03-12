@@ -1,0 +1,8 @@
+#!/bin/sh
+
+if [ ! -d "hiredis" ]; then
+    git clone git://github.com/redis/hiredis
+    pushd hiredis
+    make
+    popd
+fi

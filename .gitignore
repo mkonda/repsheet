@@ -3,3 +3,5 @@
 *.o
 *.slo
 *.lo
+hiredis
+hiredis_test.c
