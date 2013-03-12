@@ -23,9 +23,15 @@ static const command_rec repsheet_directives[] =
 
 static int repsheet_handler(request_rec *r)
 {
+  apr_time_exp_t start;
+  char human_time[50];
+
+  apr_time_exp_gmt(&start, r->request_time);
+  sprintf(human_time, "%d/%d/%d %d:%d:%d.%d", (start.tm_mon + 1), start.tm_mday, (1900 + start.tm_year), start.tm_hour, start.tm_min, start.tm_sec, start.tm_usec);
+
   if (config.enabled == 1) {
     if (strcmp(r->uri, "/favicon.ico")) {
-      ap_log_error(APLOG_MARK, APLOG_ERR, 0, r->server, "IP Address: %s, Method: %s %s", r->connection->remote_ip, r->method, r->uri);
+      ap_log_error(APLOG_MARK, APLOG_ERR, 0, r->server, "[repsheet] - %s, %s, %s, %s, %s, %s", human_time, r->connection->remote_ip, apr_table_get(r->headers_in, "User-Agent"), r->method, r->uri, r->args);
     }
   }
   return DECLINED;
