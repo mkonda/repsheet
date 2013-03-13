@@ -1,11 +1,19 @@
 #include <stdio.h>
+
 #include "http_core.h"
+#include "http_protocol.h"
 #include "http_config.h"
 #include "http_log.h"
+
 #include "hiredis/hiredis.h"
 
-typedef struct { int enabled; } repsheet_config;
+typedef struct {
+  int enabled;
+  int timeout;
+  char *action;
+} repsheet_config;
 static repsheet_config config;
+const char *prefix = "[repsheet]";
 
 const char *repsheet_set_enabled(cmd_parms *cmd, void *cfg, const char *arg)
 {
@@ -25,10 +33,10 @@ static int repsheet_handler(request_rec *r)
     if (strcmp(r->uri, "/favicon.ico")) {
 
       apr_time_exp_t start;
-      char human_time[50];
-      char value[256];
-      redisContext *c;
-      redisReply   *reply;
+      char           human_time[50];
+      char           value[256];
+      redisContext   *c;
+      redisReply     *reply;
       struct timeval timeout = {0, 5000};
 
       apr_time_exp_gmt(&start, r->request_time);
@@ -38,22 +46,22 @@ static int repsheet_handler(request_rec *r)
       c = redisConnectWithTimeout((char*) "127.0.0.1", 6379, timeout);
       if (c == NULL || c->err) {
         if (c) {
-          ap_log_error(APLOG_MARK, APLOG_ERR, 0, r->server, "Redis Connection Error: %s\n", c->errstr);
+          ap_log_error(APLOG_MARK, APLOG_ERR, 0, r->server, "%s Redis Connection Error: %s", prefix, c->errstr);
           redisFree(c);
         } else {
-          ap_log_error(APLOG_MARK, APLOG_ERR, 0, r->server, "Connection Error: can't allocate redis context\n");
+          ap_log_error(APLOG_MARK, APLOG_ERR, 0, r->server, "%s Connection Error: can't allocate redis context", prefix);
         }
+
         return DECLINED;
       }
 
       reply = redisCommand(c, "RPUSH %s %s", r->connection->remote_ip, value);
-      ap_log_error(APLOG_MARK, APLOG_ERR, 0, r->server, "[repsheet] Added data for %s with result %s", r->connection->remote_ip, reply->str);
+      ap_log_error(APLOG_MARK, APLOG_INFO, 0, r->server, "%s Added data for %s", prefix, r->connection->remote_ip);
       freeReplyObject(reply);
       redisFree(c);
     }
   }
 
-  ap_log_error(APLOG_MARK, APLOG_ERR, 0, r->server, "[repsheet] PONG");
   return DECLINED;
 }
 
