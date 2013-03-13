@@ -100,6 +100,21 @@ static int repsheet_handler(request_rec *r)
     reply = redisCommand(c, "RPUSH %s %s", r->connection->remote_ip, value);
     ap_log_error(APLOG_MARK, APLOG_INFO, 0, r->server, "%s Added data for %s", config.prefix, r->connection->remote_ip);
     freeReplyObject(reply);
+
+    const char *waf_events = apr_table_get(r->headers_in, "X-WAF-Events");
+    const char *waf_score = apr_table_get(r->headers_in, "X-WAF-Score");
+
+    if (waf_events && waf_score ) {
+      // X-WAF-Events: TX:960017-POLICY/IP_HOST-REQUEST_HEADERS:Host, TX:0, TX:1
+      // X-WAF-Score: Total=2; sqli=; xss=
+      
+      ap_log_error(APLOG_MARK, APLOG_INFO, 0, r->server, "%s WAF Event Triggered: %s", config.prefix, waf_events);
+      ap_log_error(APLOG_MARK, APLOG_INFO, 0, r->server, "%s WAF Score: %s", config.prefix, waf_score);
+
+      reply = redisCommand(c, "SADD waf %s", r->connection->remote_ip);
+      freeReplyObject(reply);
+    }
+
     redisFree(c);
   }
 
@@ -108,7 +123,7 @@ static int repsheet_handler(request_rec *r)
 
 static void register_hooks(apr_pool_t *pool)
 {
-  ap_hook_post_read_request(repsheet_handler, NULL, NULL, APR_HOOK_FIRST);
+  ap_hook_fixups(repsheet_handler, NULL, NULL, APR_HOOK_REALLY_LAST);
 }
 
 module AP_MODULE_DECLARE_DATA repsheet_module =
