@@ -44,5 +44,8 @@ Here's a complete example:
 
 ## TODO
 
+* Add directives for redis host, redis port, and redis password
+* Add simple backend app to ensure proper data gets sent down via proxy
+* Setup end to end tests with a web driver that confirm all the functionality
 * Make the redis connection plumbing more robust
 * Profile/Lint
