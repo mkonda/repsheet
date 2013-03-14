@@ -22,15 +22,12 @@ Just run `sudo make install`. You just need to enable the module using the `Reps
 ```
 <IfModule repsheet_module>
   RepsheetEnabled On
-  RepsheetRedisTimeout 5 # This is milliseconds (NOT YET SUPPORTED)
-  RepsheetAction Notify # Adds a header to the downstream request. Block returns a 403 (NOT YET SUPPORTED)
+  RepsheetRedisTimeout 5 # This is milliseconds
+  RepsheetAction Notify|Block # Nofity adds a header to the downstream request. Block returns a 403
 </IfModule>
 ```
 
 ## TODO
 
-* Add a directive to specify the redis connection timeout
 * Make the redis connection plumbing more robust
 * Profile/Lint
-* Add support for looking up an ip to see if it has been deemed bad
-* Add support for letting the user decide how to handle bad ips (Directive that takes either block or notify as arguments)
