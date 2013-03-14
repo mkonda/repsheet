@@ -13,18 +13,32 @@ ln -s /Applications/Xcode.app/Contents/Developer/Toolchains/XcodeDefault.xctoolc
 
 ## Apache Module
 
-To build the module you can just run `make`. It will ensure that the module builds properly on your system. If you are running OS X, you might need to run `make mountain_lion_setup` to symlink the proper dev tools into place for apxs.
-
 #### Installing
 
-Just run `sudo make install`. You just need to enable the module using the `RepsheetEnabled` directive in your apache/httpd.conf file.
+Compilation is done via `apxs`. This is one of the simpler ways to deal with compilation/installation/activation of a module. If you need to install manually, you can simply run `make`, copy the files to the right location, and add the configuration in your `httpd.conf`
+
+```
+make
+sudo make install
+```
+
+#### Setup
+
+To activate and configure repsheet you will need to set some directives. The following list explains what each directive is and what is does.
+
+* `RepsheetEnabled [On|Off]` - Determines if the module will do any processing
+* `RepsheetRedisTimeout n` - Sets the time (in milliseconds) before the attempt to connect to redis will timeout and fail
+* `RepsheetAction [Notify|Block]` - Determines the action to take if an IP is found on the repsheet. `Notify` will send a header downstream and `Block` will return a `403`
+* `RepsheetPrefix [repsheet]` - Sets the logger prefix. This will precede any repsheet apache log lines
+
+Here's a complete example:
 
 ```
 <IfModule repsheet_module>
   RepsheetEnabled On
-  RepsheetRedisTimeout 5 # This is milliseconds
-  RepsheetAction Notify|Block # Nofity adds a header to the downstream request. Block returns a 403
-  RepsheetPrefix [repsheet] # Specify the prefix for logging
+  RepsheetRedisTimeout 5
+  RepsheetAction Notify
+  RepsheetPrefix [repsheet]
 </IfModule>
 ```
 
