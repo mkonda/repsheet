@@ -15,10 +15,11 @@ typedef struct {
   int enabled;
   int timeout;
   int action;
+  const char *prefix;
 } repsheet_config;
 static repsheet_config config;
 
-const char *prefix = "[repsheet]";
+
 
 const char *repsheet_set_enabled(cmd_parms *cmd, void *cfg, const char *arg)
 {
@@ -29,6 +30,13 @@ const char *repsheet_set_enabled(cmd_parms *cmd, void *cfg, const char *arg)
 const char *repsheet_set_timeout(cmd_parms *cmd, void *cfg, const char *arg)
 {
   config.timeout = atoi(arg) * 1000;
+  return NULL;
+}
+
+const char *repsheet_set_prefix(cmd_parms *cmd, void *cfg, const char *arg)
+{
+  //TODO: test if directive argument is missing and set a default
+  config.prefix = arg;
   return NULL;
 }
 
@@ -48,7 +56,8 @@ static const command_rec repsheet_directives[] =
   {
     AP_INIT_TAKE1("repsheetEnabled", repsheet_set_enabled, NULL, RSRC_CONF, "Enable or disable mod_repsheet"),
     AP_INIT_TAKE1("repsheetRedisTimeout", repsheet_set_timeout, NULL, RSRC_CONF, "Set the Redis timeout"),
-    AP_INIT_TAKE1("repsheetAction", repsheet_set_action, NULL, RSRC_CONF, "Set the Action"),
+    AP_INIT_TAKE1("repsheetAction", repsheet_set_action, NULL, RSRC_CONF, "Set the action"),
+    AP_INIT_TAKE1("repsheetPrefix", repsheet_set_prefix, NULL, RSRC_CONF, "Set the log prefix"),
     { NULL }
   };
 
@@ -58,7 +67,7 @@ static int repsheet_handler(request_rec *r)
 
     apr_time_exp_t start;
     char           human_time[50];
-    char           value[256];
+    char           value[256]; // TODO: potential overflow here
     redisContext   *c;
     redisReply     *reply;
 
@@ -67,10 +76,10 @@ static int repsheet_handler(request_rec *r)
     c = redisConnectWithTimeout((char*) "127.0.0.1", 6379, timeout);
     if (c == NULL || c->err) {
       if (c) {
-        ap_log_error(APLOG_MARK, APLOG_ERR, 0, r->server, "%s Redis Connection Error: %s", prefix, c->errstr);
+        ap_log_error(APLOG_MARK, APLOG_ERR, 0, r->server, "%s Redis Connection Error: %s", config.prefix, c->errstr);
         redisFree(c);
       } else {
-        ap_log_error(APLOG_MARK, APLOG_ERR, 0, r->server, "%s Connection Error: can't allocate redis context", prefix);
+        ap_log_error(APLOG_MARK, APLOG_ERR, 0, r->server, "%s Connection Error: can't allocate redis context", config.prefix);
       }
 
       return DECLINED;
@@ -91,7 +100,7 @@ static int repsheet_handler(request_rec *r)
     sprintf(value, "%s,%s,%s,%s,%s", human_time, apr_table_get(r->headers_in, "User-Agent"), r->method, r->uri, r->args);
 
     reply = redisCommand(c, "RPUSH %s %s", r->connection->remote_ip, value);
-    ap_log_error(APLOG_MARK, APLOG_INFO, 0, r->server, "%s Added data for %s", prefix, r->connection->remote_ip);
+    ap_log_error(APLOG_MARK, APLOG_INFO, 0, r->server, "%s Added data for %s", config.prefix, r->connection->remote_ip);
     freeReplyObject(reply);
     redisFree(c);
   }

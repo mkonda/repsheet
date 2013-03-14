@@ -24,6 +24,7 @@ Just run `sudo make install`. You just need to enable the module using the `Reps
   RepsheetEnabled On
   RepsheetRedisTimeout 5 # This is milliseconds
   RepsheetAction Notify|Block # Nofity adds a header to the downstream request. Block returns a 403
+  RepsheetPrefix [repsheet] # Specify the prefix for logging
 </IfModule>
 ```
 
