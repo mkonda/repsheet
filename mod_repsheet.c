@@ -19,8 +19,6 @@ typedef struct {
 } repsheet_config;
 static repsheet_config config;
 
-
-
 const char *repsheet_set_enabled(cmd_parms *cmd, void *cfg, const char *arg)
 {
   if (!strcasecmp(arg, "on")) config.enabled = 1; else config.enabled = 0;
@@ -90,7 +88,7 @@ static int repsheet_handler(request_rec *r)
       if (config.action == BLOCK) {
 	return HTTP_FORBIDDEN;
       } else {
-	apr_table_set(r->headers_out, "X-Repsheet", "true");
+	apr_table_set(r->headers_in, "X-Repsheet", "true");
       }
     }
     freeReplyObject(reply);
