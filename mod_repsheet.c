@@ -1,4 +1,6 @@
 #include <stdio.h>
+#include <pcre.h>
+#include <assert.h>
 
 #include "http_core.h"
 #include "http_protocol.h"
@@ -60,6 +62,24 @@ static const command_rec repsheet_directives[] =
     { NULL }
   };
 
+char *substr(char *string, int start, int end)
+{
+  char *ret = malloc(strlen(string) + 1);
+  char *p = ret;
+  char *q = &string[start];
+
+  assert(ret != NULL);
+
+  while(start < end) {
+    *p++ = *q++;
+    start++;
+  }
+
+  *p++ = '\0';
+
+  return ret;
+}
+
 static int repsheet_handler(request_rec *r)
 {
   if (config.enabled == 1) {
@@ -87,9 +107,9 @@ static int repsheet_handler(request_rec *r)
     reply = redisCommand(c, "SISMEMBER repsheet %s", r->connection->remote_ip);
     if (reply->integer == 1) {
       if (config.action == BLOCK) {
-	return HTTP_FORBIDDEN;
+        return HTTP_FORBIDDEN;
       } else {
-	apr_table_set(r->headers_in, "X-Repsheet", "true");
+        apr_table_set(r->headers_in, "X-Repsheet", "true");
       }
     }
     freeReplyObject(reply);
@@ -102,18 +122,30 @@ static int repsheet_handler(request_rec *r)
     ap_log_error(APLOG_MARK, APLOG_INFO, 0, r->server, "%s Added data for %s", config.prefix, r->connection->remote_ip);
     freeReplyObject(reply);
 
-    const char *waf_events = apr_table_get(r->headers_in, "X-WAF-Events");
-    const char *waf_score = apr_table_get(r->headers_in, "X-WAF-Score");
+    char *waf_events = (char *)apr_table_get(r->headers_in, "X-WAF-Events");
+    char *waf_score = (char *)apr_table_get(r->headers_in, "X-WAF-Score");
 
     if (waf_events && waf_score ) {
-      // X-WAF-Events: TX:960017-POLICY/IP_HOST-REQUEST_HEADERS:Host, TX:0, TX:1
-      // X-WAF-Score: Total=2; sqli=; xss=
-      
-      ap_log_error(APLOG_MARK, APLOG_INFO, 0, r->server, "%s WAF Event Triggered: %s", config.prefix, waf_events);
-      ap_log_error(APLOG_MARK, APLOG_INFO, 0, r->server, "%s WAF Score: %s", config.prefix, waf_score);
+      int erroffset, i , rc, count = 0;
+      int ovector[100];
+      unsigned int offset = 0;
+      unsigned int len = strlen(waf_events);
+      const char *error;
+      char *results[100];
+      char *event;
+      pcre *re;
 
-      reply = redisCommand(c, "SADD waf %s", r->connection->remote_ip);
-      freeReplyObject(reply);
+      re = pcre_compile ("\\d{6}", PCRE_MULTILINE, &error, &erroffset, 0);
+
+      while (offset < len && (rc = pcre_exec(re, 0, waf_events, len, offset, 0, ovector, sizeof(ovector))) >= 0) {
+        for (i = 0; i < rc; i++) {
+          event = substr(waf_events, ovector[2*i], ovector[2*i] + 6);
+          freeReplyObject(redisCommand(c, "SADD %s, %s", event, r->connection->remote_ip));
+          freeReplyObject(redisCommand(c, "INCR %s:%s", event, r->connection->remote_ip));
+        }
+        count++;
+        offset = ovector[1];
+      }
     }
 
     redisFree(c);
