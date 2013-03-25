@@ -5,3 +5,5 @@
 *.lo
 hiredis
 hiredis_test.c
+build
+vendor

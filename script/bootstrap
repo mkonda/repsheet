@@ -1,8 +1,44 @@
 #!/bin/sh
 
-if [ ! -d "hiredis" ]; then
-    git clone git://github.com/redis/hiredis
-    pushd hiredis
+DIR=`pwd`
+BUILDDIR=$DIR/build
+
+echo $DIR
+
+if [ ! -d $BUILDDIR ]; then
+    mkdir $BUILDDIR
+fi
+
+if [ ! -d "vendor" ]; then
+    mkdir vendor
+fi
+
+if [ ! -d "vendor/httpd-2.2.23" ]; then
+    pushd vendor
+    curl -O http://mirrors.gigenet.com/apache/httpd/httpd-2.2.23.tar.gz
+    tar xvzf httpd-2.2.23.tar.gz
+    pushd httpd-2.2.23
+    ./configure --prefix=$BUILDDIR --exec-prefix=$BUILDDIR --enable-so --enable-modules=all --enable-mods-shared=all
     make
+    make install
     popd
+    popd
+    pushd $BUILDDIR/conf
+    sed -i.bak 's/Listen 80/Listen 8888/' httpd.conf
+    sed -i.bak 's/LogLevel warn/LogLevel info/' httpd.conf
+    popd
+fi
+
+if [ ! -d "vendor/modsecurity-apache_2.7.2" ]; then
+    pushd vendor
+    curl -O http://www.modsecurity.org/tarball/2.7.2/modsecurity-apache_2.7.2.tar.gz
+    tar xvzf modsecurity-apache_2.7.2.tar.gz
+    pushd modsecurity-apache_2.7.2
+    ./configure --prefix=$BUILDDIR --exec-prefix=$BUILDDIR
+    make
+    make install
+    cp $BUILDDIR/lib/mod_security2.so $BUILDDIR/modules
+    popd
+    popd
+    ln -sf `pwd`/conf build/conf/modsecurity
 fi

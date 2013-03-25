@@ -1,3 +1,4 @@
+
 #include <stdio.h>
 #include <pcre.h>
 #include <assert.h>
@@ -142,6 +143,9 @@ static int repsheet_handler(request_rec *r)
     char *waf_events = (char *)apr_table_get(r->headers_in, "X-WAF-Events");
     char *waf_score = (char *)apr_table_get(r->headers_in, "X-WAF-Score");
 
+    ap_log_error(APLOG_MARK, APLOG_INFO, 0, r->server, "%s X-WAF-Events %s", config.prefix, waf_events);
+    ap_log_error(APLOG_MARK, APLOG_INFO, 0, r->server, "%s X-WAF-Score %s", config.prefix, waf_score);
+    
     if (waf_events && waf_score ) {
       int erroffset, i , rc, count = 0;
       int ovector[100];
