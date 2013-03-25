@@ -26,19 +26,23 @@ sudo make install
 
 To activate and configure repsheet you will need to set some directives. The following list explains what each directive is and what is does.
 
-* `RepsheetEnabled [On|Off]` - Determines if the module will do any processing
+* `RepsheetEnabled <On|Off>` - Determines if the module will do any processing
+* `RepsheetAction <Notify|Block>` - Determines the action to take if an IP is found on the repsheet. `Notify` will send a header downstream and `Block` will return a `403`
+* `RepsheetPrefix <prefix>` - Sets the logger prefix. This will precede any repsheet apache log lines
 * `RepsheetRedisTimeout n` - Sets the time (in milliseconds) before the attempt to connect to redis will timeout and fail
-* `RepsheetAction [Notify|Block]` - Determines the action to take if an IP is found on the repsheet. `Notify` will send a header downstream and `Block` will return a `403`
-* `RepsheetPrefix [repsheet]` - Sets the logger prefix. This will precede any repsheet apache log lines
+* `RepsheetRedisHost <host>` - Sets the host for the Redis connection
+* `RepsheetRedisTimeout <port>` - Sets the port for the Redis connection
 
 Here's a complete example:
 
 ```
 <IfModule repsheet_module>
   RepsheetEnabled On
-  RepsheetRedisTimeout 5
   RepsheetAction Notify
   RepsheetPrefix [repsheet]
+  RepsheetRedisTimeout 5
+  RepsheetRedisHost localhost
+  RepsheetRedisPort 6379
 </IfModule>
 ```
 

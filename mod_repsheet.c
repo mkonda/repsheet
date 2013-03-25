@@ -18,7 +18,9 @@ typedef struct {
   int enabled;
   int timeout;
   int action;
+  int port;
   const char *prefix;
+  const char *host;
 } repsheet_config;
 static repsheet_config config;
 
@@ -31,6 +33,18 @@ const char *repsheet_set_enabled(cmd_parms *cmd, void *cfg, const char *arg)
 const char *repsheet_set_timeout(cmd_parms *cmd, void *cfg, const char *arg)
 {
   config.timeout = atoi(arg) * 1000;
+  return NULL;
+}
+
+const char *repsheet_set_host(cmd_parms *cmd, void *cfg, const char *arg)
+{
+  config.host = arg;
+  return NULL;
+}
+
+const char *repsheet_set_port(cmd_parms *cmd, void *cfg, const char *arg)
+{
+  config.port = atoi(arg);
   return NULL;
 }
 
@@ -54,13 +68,15 @@ const char *repsheet_set_action(cmd_parms *cmd, void *cfg, const char *arg)
 }
 
 static const command_rec repsheet_directives[] =
-  {
-    AP_INIT_TAKE1("repsheetEnabled", repsheet_set_enabled, NULL, RSRC_CONF, "Enable or disable mod_repsheet"),
-    AP_INIT_TAKE1("repsheetRedisTimeout", repsheet_set_timeout, NULL, RSRC_CONF, "Set the Redis timeout"),
-    AP_INIT_TAKE1("repsheetAction", repsheet_set_action, NULL, RSRC_CONF, "Set the action"),
-    AP_INIT_TAKE1("repsheetPrefix", repsheet_set_prefix, NULL, RSRC_CONF, "Set the log prefix"),
-    { NULL }
-  };
+{
+  AP_INIT_TAKE1("repsheetEnabled", repsheet_set_enabled, NULL, RSRC_CONF, "Enable or disable mod_repsheet"),
+  AP_INIT_TAKE1("repsheetAction", repsheet_set_action, NULL, RSRC_CONF, "Set the action"),
+  AP_INIT_TAKE1("repsheetPrefix", repsheet_set_prefix, NULL, RSRC_CONF, "Set the log prefix"),
+  AP_INIT_TAKE1("repsheetRedisTimeout", repsheet_set_timeout, NULL, RSRC_CONF, "Set the Redis timeout"),
+  AP_INIT_TAKE1("repsheetRedisHost", repsheet_set_host, NULL, RSRC_CONF, "Set the Redis host"),
+  AP_INIT_TAKE1("repsheetRedisPort", repsheet_set_port, NULL, RSRC_CONF, "Set the Redis port"),
+  { NULL }
+};
 
 char *substr(char *string, int start, int end)
 {
@@ -92,7 +108,7 @@ static int repsheet_handler(request_rec *r)
 
     struct timeval timeout = {0, (config.timeout > 0) ? config.timeout : 10000};
 
-    c = redisConnectWithTimeout((char*) "127.0.0.1", 6379, timeout);
+    c = redisConnectWithTimeout((char*) config.host, config.port, timeout);
     if (c == NULL || c->err) {
       if (c) {
         ap_log_error(APLOG_MARK, APLOG_ERR, 0, r->server, "%s Redis Connection Error: %s", config.prefix, c->errstr);
@@ -109,7 +125,7 @@ static int repsheet_handler(request_rec *r)
       if (config.action == BLOCK) {
         return HTTP_FORBIDDEN;
       } else {
-	ap_log_error(APLOG_MARK, APLOG_ERR, 0, r->server, "%s IP Address %s was found on the repsheet. No action taken", config.prefix, r->connection->remote_ip);
+        ap_log_error(APLOG_MARK, APLOG_ERR, 0, r->server, "%s IP Address %s was found on the repsheet. No action taken", config.prefix, r->connection->remote_ip);
         apr_table_set(r->headers_in, "X-Repsheet", "true");
       }
     }
@@ -140,13 +156,13 @@ static int repsheet_handler(request_rec *r)
 
       while (offset < len && (rc = pcre_exec(re, 0, waf_events, len, offset, 0, ovector, sizeof(ovector))) >= 0) {
         for (i = 0; i < rc; i++) {
-	  event = substr(waf_events, ovector[2*i], ovector[2*i] + (ovector[2*i+1] - ovector[2*i]));
-	  if (count > 0 && event != prev_event) {
-	    freeReplyObject(redisCommand(c, "SADD %s %s", event, r->connection->remote_ip));
-	    freeReplyObject(redisCommand(c, "INCR %s:%s", event, r->connection->remote_ip));
-	    freeReplyObject(redisCommand(c, "SADD repsheet %s", r->connection->remote_ip));
-	    prev_event = event;
-	  }
+          event = substr(waf_events, ovector[2*i], ovector[2*i] + (ovector[2*i+1] - ovector[2*i]));
+          if (count > 0 && event != prev_event) {
+            freeReplyObject(redisCommand(c, "SADD %s %s", event, r->connection->remote_ip));
+            freeReplyObject(redisCommand(c, "INCR %s:%s", event, r->connection->remote_ip));
+            freeReplyObject(redisCommand(c, "SADD repsheet %s", r->connection->remote_ip));
+            prev_event = event;
+          }
         }
         count++;
         offset = ovector[1];
@@ -165,12 +181,12 @@ static void register_hooks(apr_pool_t *pool)
 }
 
 module AP_MODULE_DECLARE_DATA repsheet_module =
-  {
-    STANDARD20_MODULE_STUFF,
-    NULL,                /* Per-directory configuration handler */
-    NULL,                /* Merge handler for per-directory configurations */
-    NULL,                /* Per-server configuration handler */
-    NULL,                /* Merge handler for per-server configurations */
-    repsheet_directives, /* Any directives we may have for httpd */
-    register_hooks       /* Our hook registering function */
-  };
+{
+  STANDARD20_MODULE_STUFF,
+  NULL,                /* Per-directory configuration handler */
+  NULL,                /* Merge handler for per-directory configurations */
+  NULL,                /* Per-server configuration handler */
+  NULL,                /* Merge handler for per-server configurations */
+  repsheet_directives, /* Any directives we may have for httpd */
+  register_hooks       /* Our hook registering function */
+};
