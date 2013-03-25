@@ -109,6 +109,7 @@ static int repsheet_handler(request_rec *r)
       if (config.action == BLOCK) {
         return HTTP_FORBIDDEN;
       } else {
+	ap_log_error(APLOG_MARK, APLOG_ERR, 0, r->server, "%s IP Address %s was found on the repsheet. No action taken", config.prefix, r->connection->remote_ip);
         apr_table_set(r->headers_in, "X-Repsheet", "true");
       }
     }
@@ -132,16 +133,20 @@ static int repsheet_handler(request_rec *r)
       unsigned int len = strlen(waf_events);
       const char *error;
       char *results[100];
-      char *event;
+      char *event, *prev_event;
       pcre *re;
 
       re = pcre_compile ("\\d{6}", PCRE_MULTILINE, &error, &erroffset, 0);
 
       while (offset < len && (rc = pcre_exec(re, 0, waf_events, len, offset, 0, ovector, sizeof(ovector))) >= 0) {
         for (i = 0; i < rc; i++) {
-          event = substr(waf_events, ovector[2*i], ovector[2*i] + 6);
-          freeReplyObject(redisCommand(c, "SADD %s, %s", event, r->connection->remote_ip));
-          freeReplyObject(redisCommand(c, "INCR %s:%s", event, r->connection->remote_ip));
+	  event = substr(waf_events, ovector[2*i], ovector[2*i] + (ovector[2*i+1] - ovector[2*i]));
+	  if (count > 0 && event != prev_event) {
+	    freeReplyObject(redisCommand(c, "SADD %s %s", event, r->connection->remote_ip));
+	    freeReplyObject(redisCommand(c, "INCR %s:%s", event, r->connection->remote_ip));
+	    freeReplyObject(redisCommand(c, "SADD repsheet %s", r->connection->remote_ip));
+	    prev_event = event;
+	  }
         }
         count++;
         offset = ovector[1];
