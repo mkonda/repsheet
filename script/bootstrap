@@ -15,10 +15,23 @@ fi
 
 if [ ! -d "vendor/httpd-2.2.23" ]; then
     pushd vendor
-    curl -O http://mirrors.gigenet.com/apache/httpd/httpd-2.2.23.tar.gz
-    tar xvzf httpd-2.2.23.tar.gz
-    pushd httpd-2.2.23
-    ./configure --prefix=$BUILDDIR --exec-prefix=$BUILDDIR --enable-so --enable-modules=all --enable-mods-shared=all
+    curl -O http://mirrors.gigenet.com/apache/httpd/httpd-2.2.24.tar.gz
+    tar xvzf httpd-2.2.24.tar.gz
+    pushd httpd-2.2.24
+    ./configure --prefix=$BUILDDIR \
+	        --exec-prefix=$BUILDDIR \
+	        --enable-modules=all \
+	        --enable-mods-shared=all \
+	        --enable-so \
+	        --enable-suexec \
+	        --enable-ldap \
+	        --enable-authnz-ldap \
+		--enable-cache --enable-disk-cache --enable-mem-cache --enable-file-cache \
+		--enable-ssl --with-ssl \
+		--enable-deflate --enable-cgid \
+		--enable-proxy --enable-proxy-connect \
+		--enable-proxy-http --enable-proxy-ftp \
+		--enable-dbd
     make
     make install
     popd
@@ -40,5 +53,5 @@ if [ ! -d "vendor/modsecurity-apache_2.7.2" ]; then
     cp $BUILDDIR/lib/mod_security2.so $BUILDDIR/modules
     popd
     popd
-    ln -sf `pwd`/conf build/conf/modsecurity
+    cp -r conf build/conf/modsecurity
 fi

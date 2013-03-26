@@ -2,6 +2,12 @@ CFLAGS += -Wall -Werror -lhiredis
 LOCAL_BUILD = build
 
 define CONFIG
+LoadModule security2_module modules/mod_security2.so
+
+<IfModule security2_module>
+  Include conf/modsecurity/*.conf
+</IfModule>
+
 <IfModule repsheet_module>
   RepsheetEnabled On
   RepsheetAction Notify
@@ -10,12 +16,6 @@ define CONFIG
   RepsheetRedisHost localhost
   RepsheetRedisPort 6379
 </IfModule>
-
-LoadModule security2_module modules/mod_security2.so
-
-<IfModule security2_module>
-  Include conf/modsecurity/*.conf
-</IfModule> 
 endef
 
 .PHONY: clean setup
