@@ -54,7 +54,8 @@ if [ ! -d "vendor/modsecurity-apache_2.7.2" ]; then
     cp $BUILDDIR/lib/mod_security2.so $BUILDDIR/modules
     popd
     popd
-    cp -r conf build/conf/modsecurity
+    mkdir build/conf/modsecurity
+    cp -r conf/* build/conf/modsecurity/
 
     cat <<EOF >> build/conf/httpd.conf
 LoadModule security2_module modules/mod_security2.so
