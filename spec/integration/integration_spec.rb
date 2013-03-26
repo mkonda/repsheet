@@ -19,7 +19,7 @@ describe "Repsheet Recorder" do
     driver = Selenium::WebDriver.for :firefox
     driver.get "http://localhost:8888"
     redis = Redis.new
-    redis.lrange("127.0.0.1", 0, -1).count.should be > 0
+    redis.lrange("::1", 0, -1).count.should be > 0
     driver.close
   end
 end
@@ -29,7 +29,7 @@ describe "Repsheet ModSecurity Integration" do
     driver = Selenium::WebDriver.for :firefox
     driver.get "http://localhost:8888?../../"
     redis = Redis.new
-    redis.type("950103:127.0.0.1").should == "string"
+    redis.type("950103:::1").should == "string"
     redis.type("950103").should == "set"
     redis.type("repsheet").should == "set"
     driver.close
@@ -38,10 +38,10 @@ describe "Repsheet ModSecurity Integration" do
   it "Adds the offending IP address to the repsheet" do
     redis = Redis.new
     redis.flushdb
-    redis.sismember("repsheet", "127.0.0.1").should be_false
+    redis.sismember("repsheet", "::1").should be_false
     driver = Selenium::WebDriver.for :firefox
     driver.get "http://localhost:8888?../../"
-    redis.sismember("repsheet", "127.0.0.1").should be_true
+    redis.sismember("repsheet", "::1").should be_true
     driver.close
   end
 end
