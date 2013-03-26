@@ -13,7 +13,7 @@ if [ ! -d "vendor" ]; then
     mkdir vendor
 fi
 
-if [ ! -d "vendor/httpd-2.2.23" ]; then
+if [ ! -d "vendor/httpd-2.2.24" ]; then
     pushd vendor
     curl -O http://mirrors.gigenet.com/apache/httpd/httpd-2.2.24.tar.gz
     tar xvzf httpd-2.2.24.tar.gz
@@ -55,4 +55,21 @@ if [ ! -d "vendor/modsecurity-apache_2.7.2" ]; then
     popd
     popd
     cp -r conf build/conf/modsecurity
+
+    cat <<EOF >> build/conf/httpd.conf
+LoadModule security2_module modules/mod_security2.so
+
+<IfModule security2_module>
+  Include conf/modsecurity/*.conf
+</IfModule>
+
+<IfModule repsheet_module>
+  RepsheetEnabled On
+  RepsheetAction Notify
+  RepsheetPrefix [repsheet]
+  RepsheetRedisTimeout 5
+  RepsheetRedisHost localhost
+  RepsheetRedisPort 6379
+</IfModule>
+EOF
 fi

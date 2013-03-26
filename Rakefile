@@ -46,5 +46,13 @@ namespace :redis do
   end
 end
 
+namespace :repsheet do
+  task :bootstrap do
+    unless Dir.exists?("build")
+      puts "Run make install_local before running the tests"
+      exit(1)
+    end
+  end
+end
 
-task :default => ["services:start", :integration, "services:stop"]
+task :default => ["repsheet:bootstrap", "services:start", :integration, "services:stop"]
