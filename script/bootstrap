@@ -39,6 +39,7 @@ if [ ! -d "vendor/httpd-2.2.23" ]; then
     pushd $BUILDDIR/conf
     sed -i.bak 's/Listen 80/Listen 8888/' httpd.conf
     sed -i.bak 's/LogLevel warn/LogLevel info/' httpd.conf
+    sed -i.bak 's/#ServerName www.example.com:80/ServerName localhost/' httpd.conf
     popd
 fi
 
