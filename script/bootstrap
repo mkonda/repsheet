@@ -71,6 +71,7 @@ LoadModule security2_module modules/mod_security2.so
   RepsheetRedisTimeout 5
   RepsheetRedisHost localhost
   RepsheetRedisPort 6379
+  RepsheetRedisTTL 24
 </IfModule>
 EOF
 fi
