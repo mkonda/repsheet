@@ -21,7 +21,6 @@ int main(int argc, char *argv[])
         port = atoi(optarg);
         break;
       case '?':
-        fprintf(stderr, "Unknown option: '\\x%x'.\n", optopt);
         return 1;
       default:
         abort();
