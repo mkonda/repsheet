@@ -96,10 +96,10 @@ char *substr(char *string, int start, int end)
   return ret;
 }
 
-static int repsheet_handler(request_rec *r)
+static int repsheet_recorder(request_rec *r)
 {
   if (config.enabled == 1) {
-
+    if (!ap_is_initial_req(r)) return DECLINED;
     apr_time_exp_t start;
     char           human_time[50];
     char           value[256]; // TODO: potential overflow here
@@ -138,6 +138,31 @@ static int repsheet_handler(request_rec *r)
     reply = redisCommand(c, "RPUSH %s %s", r->connection->remote_ip, value);
     ap_log_error(APLOG_MARK, APLOG_INFO, 0, r->server, "%s Added data for %s", config.prefix, r->connection->remote_ip);
     freeReplyObject(reply);
+    redisFree(c);
+  }
+  return DECLINED;
+}
+
+
+static int repsheet_mod_security_filter(request_rec *r)
+{
+  if (config.enabled == 1) {
+    redisContext   *c;
+    redisReply     *reply;
+
+    struct timeval timeout = {0, (config.timeout > 0) ? config.timeout : 10000};
+
+    c = redisConnectWithTimeout((char*) config.host, config.port, timeout);
+    if (c == NULL || c->err) {
+      if (c) {
+        ap_log_error(APLOG_MARK, APLOG_ERR, 0, r->server, "%s Redis Connection Error: %s", config.prefix, c->errstr);
+        redisFree(c);
+      } else {
+        ap_log_error(APLOG_MARK, APLOG_ERR, 0, r->server, "%s Connection Error: can't allocate redis context", config.prefix);
+      }
+
+      return DECLINED;
+    }
 
     char *waf_events = (char *)apr_table_get(r->headers_in, "X-WAF-Events");
     char *waf_score = (char *)apr_table_get(r->headers_in, "X-WAF-Score");
@@ -180,7 +205,8 @@ static int repsheet_handler(request_rec *r)
 
 static void register_hooks(apr_pool_t *pool)
 {
-  ap_hook_fixups(repsheet_handler, NULL, NULL, APR_HOOK_REALLY_LAST);
+  ap_hook_log_transaction(repsheet_recorder, NULL, NULL, APR_HOOK_LAST);
+  ap_hook_fixups(repsheet_mod_security_filter, NULL, NULL, APR_HOOK_REALLY_LAST);
 }
 
 module AP_MODULE_DECLARE_DATA repsheet_module =
