@@ -8,3 +8,5 @@ hiredis_test.c
 build
 vendor
 dump.rdb
+repsheet_cleaner
+*.dSYM
