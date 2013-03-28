@@ -1,0 +1,31 @@
+<html>
+  <head>
+    <script src="/javascripts/d3.v3.min.js" type="text/javascript"></script>
+    <script src="/javascripts/application.js" type="text/javascript"></script>
+    <style>
+      .chartLabel {
+        font: 16px sans-serif;
+        fill: #666;
+      }
+
+      .arcLabel {
+        font: 10px sans-serif;
+        fill: #fff;
+      }
+    </style>
+  </head>
+
+  <body>
+    <% unless @data[:rules].empty? %>
+      <h2>Rules Triggered by Count</h2>
+      <script>pie(<%= @data[:rules].collect {|k,v| {"legendLabel" => k, "magnitude" => v}}.to_json %>);</script>
+    <% end %>
+
+    <% unless @data[:rules].empty? %>
+      <h2>Rules Triggered by IP</h2>
+      <% @data[:ips].each do |key, value| %>
+        <script>donut(<%= value.keys.to_json %>, <%= {:label => key, :pct => value.values}.to_json %>);</script>
+      <% end %>
+    <% end %>
+  </body>
+</html>

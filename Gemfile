@@ -1,5 +1,5 @@
 source 'https://rubygems.org'
 
-gem 'rspec'
-gem 'selenium-webdriver'
-gem 'redis'
+gem "rspec"
+gem "selenium-webdriver"
+gem "redis"
