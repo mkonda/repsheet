@@ -24,6 +24,22 @@ describe "Repsheet Recorder" do
     redis.llen("127.0.0.1").should == 1
     driver.close
   end
+
+  it "Trims the number of entries for an IP to the number specified" do
+    system("sed -i.bak 's/RepsheetRedisMaxLength 1000/RepsheetRedisMaxLength 2/' build/conf/httpd.conf")
+    system("build/bin/apachectl restart")
+    sleep(5)
+    redis = Redis.new
+    redis.flushdb
+    driver = Selenium::WebDriver.for :firefox
+    3.times do
+      driver.get "http://localhost:8888"
+    end
+    redis = Redis.new
+    redis.llen("127.0.0.1").should == 2
+    system("sed -i.bak 's/RepsheetRedisMaxLength 2/RepsheetRedisMaxLength 1000/' build/conf/httpd.conf")
+    driver.close
+  end
 end
 
 describe "Repsheet ModSecurity Integration" do

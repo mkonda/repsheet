@@ -20,6 +20,7 @@ typedef struct {
   int action;
   int port;
   int ttl;
+  int length;
   const char *prefix;
   const char *host;
 } repsheet_config;
@@ -55,6 +56,12 @@ const char *repsheet_set_ttl(cmd_parms *cmd, void *cfg, const char *arg)
   return NULL;
 }
 
+const char *repsheet_set_length(cmd_parms *cmd, void *cfg, const char *arg)
+{
+  config.length = atoi(arg);
+  return NULL;
+}
+
 const char *repsheet_set_prefix(cmd_parms *cmd, void *cfg, const char *arg)
 {
   config.prefix = arg;
@@ -82,6 +89,7 @@ static const command_rec repsheet_directives[] =
   AP_INIT_TAKE1("repsheetRedisHost", repsheet_set_host, NULL, RSRC_CONF, "Set the Redis host"),
   AP_INIT_TAKE1("repsheetRedisPort", repsheet_set_port, NULL, RSRC_CONF, "Set the Redis port"),
   AP_INIT_TAKE1("repsheetRedisTTL", repsheet_set_ttl, NULL, RSRC_CONF, "Set the Redis Expiry for keys (in hours)"),
+  AP_INIT_TAKE1("repsheetRedisMaxLength", repsheet_set_length, NULL, RSRC_CONF, "Last n requests kept per IP"),
   { NULL }
 };
 
@@ -142,7 +150,8 @@ static int repsheet_recorder(request_rec *r)
     sprintf(human_time, "%d/%d/%d %d:%d:%d.%d", (start.tm_mon + 1), start.tm_mday, (1900 + start.tm_year), start.tm_hour, start.tm_min, start.tm_sec, start.tm_usec);
     sprintf(value, "%s,%s,%s,%s,%s", human_time, apr_table_get(r->headers_in, "User-Agent"), r->method, r->uri, r->args);
 
-    freeReplyObject(redisCommand(c, "RPUSH %s %s", r->connection->remote_ip, value));
+    freeReplyObject(redisCommand(c, "LPUSH %s %s", r->connection->remote_ip, value));
+    freeReplyObject(redisCommand(c, "LTRIM 0 %d", (config.length - 1)));
     freeReplyObject(redisCommand(c, "EXPIRE %s %d", r->connection->remote_ip, config.ttl));
     redisFree(c);
   }

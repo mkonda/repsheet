@@ -72,6 +72,7 @@ LoadModule security2_module modules/mod_security2.so
   RepsheetRedisHost localhost
   RepsheetRedisPort 6379
   RepsheetRedisTTL 24
+  RepsheetRedisMaxIPLength 1000
 </IfModule>
 EOF
 fi
