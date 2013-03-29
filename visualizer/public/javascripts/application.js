@@ -4,13 +4,16 @@ function angle(d) {
 }
 
 function pie(dataSet) {
-  var canvasWidth = 300,
-  canvasHeight = 300,
-  outerRadius = 100,
+  var canvasWidth = 500,
+  canvasHeight = 500,
+  outerRadius = 150,
   color = d3.scale.category20();
 
-  var vis = d3.select("body").append("svg:svg").data([dataSet]).attr("width", canvasWidth).attr("height", canvasHeight).append("svg:g")
-                             .attr("transform", "translate(" + 1.5*outerRadius + "," + 1.5*outerRadius + ")")
+  var vis = d3.select("#total").append("svg:svg")
+                               .data([dataSet]).attr("width", canvasWidth)
+                               .attr("height", canvasHeight)
+                               .append("svg:g")
+                               .attr("transform", "translate(" + 1.5*outerRadius + "," + 1.5*outerRadius + ")")
 
   var arc = d3.svg.arc().outerRadius(outerRadius);
   var pie = d3.layout.pie().value(function(d) { return d.magnitude; }).sort( function(d) { return null; } );
@@ -41,7 +44,7 @@ function donut(labels, data) {
       donut = d3.layout.pie().sort(null),
       arc = d3.svg.arc().innerRadius(r - 70).outerRadius(r - 20);
 
-  var svg = d3.select("body").append("svg:svg").attr("width", w).attr("height", h);
+  var svg = d3.select("#individual").append("svg:svg").attr("width", w).attr("height", h);
 
   var arc_grp = svg.append("svg:g").attr("class", "arcGrp")
                                    .attr("transform", "translate(" + (w / 2) + "," + (h / 2) + ")");
