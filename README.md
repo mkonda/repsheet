@@ -42,7 +42,7 @@ In other words, each IP address that triggers a rule is stored in a set that key
 
 The high level idea is captured in this drawing:
 
-![Repsheet](https://github.com/abedra/repsheet/blob/master/doc/Repsheet.png)
+![Repsheet](https://raw.github.com/abedra/repsheet/master/doc/Repsheet.png)
 
 ## What are the benefits?
 
