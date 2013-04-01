@@ -1,3 +1,19 @@
+/*
+  Copyright 2013 Aaron Bedra
+
+  Licensed under the Apache License, Version 2.0 (the "License");
+  you may not use this file except in compliance with the License.
+  You may obtain a copy of the License at
+
+  http://www.apache.org/licenses/LICENSE-2.0
+
+  Unless required by applicable law or agreed to in writing, software
+  distributed under the License is distributed on an "AS IS" BASIS,
+  WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+  See the License for the specific language governing permissions and
+  limitations under the License.
+*/
+
 #include <stdio.h>
 #include <pcre.h>
 #include <assert.h>
@@ -81,17 +97,17 @@ const char *repsheet_set_action(cmd_parms *cmd, void *cfg, const char *arg)
 }
 
 static const command_rec repsheet_directives[] =
-{
-  AP_INIT_TAKE1("repsheetEnabled", repsheet_set_enabled, NULL, RSRC_CONF, "Enable or disable mod_repsheet"),
-  AP_INIT_TAKE1("repsheetAction", repsheet_set_action, NULL, RSRC_CONF, "Set the action"),
-  AP_INIT_TAKE1("repsheetPrefix", repsheet_set_prefix, NULL, RSRC_CONF, "Set the log prefix"),
-  AP_INIT_TAKE1("repsheetRedisTimeout", repsheet_set_timeout, NULL, RSRC_CONF, "Set the Redis timeout"),
-  AP_INIT_TAKE1("repsheetRedisHost", repsheet_set_host, NULL, RSRC_CONF, "Set the Redis host"),
-  AP_INIT_TAKE1("repsheetRedisPort", repsheet_set_port, NULL, RSRC_CONF, "Set the Redis port"),
-  AP_INIT_TAKE1("repsheetRedisTTL", repsheet_set_ttl, NULL, RSRC_CONF, "Set the Redis Expiry for keys (in hours)"),
-  AP_INIT_TAKE1("repsheetRedisMaxLength", repsheet_set_length, NULL, RSRC_CONF, "Last n requests kept per IP"),
-  { NULL }
-};
+  {
+    AP_INIT_TAKE1("repsheetEnabled", repsheet_set_enabled, NULL, RSRC_CONF, "Enable or disable mod_repsheet"),
+    AP_INIT_TAKE1("repsheetAction", repsheet_set_action, NULL, RSRC_CONF, "Set the action"),
+    AP_INIT_TAKE1("repsheetPrefix", repsheet_set_prefix, NULL, RSRC_CONF, "Set the log prefix"),
+    AP_INIT_TAKE1("repsheetRedisTimeout", repsheet_set_timeout, NULL, RSRC_CONF, "Set the Redis timeout"),
+    AP_INIT_TAKE1("repsheetRedisHost", repsheet_set_host, NULL, RSRC_CONF, "Set the Redis host"),
+    AP_INIT_TAKE1("repsheetRedisPort", repsheet_set_port, NULL, RSRC_CONF, "Set the Redis port"),
+    AP_INIT_TAKE1("repsheetRedisTTL", repsheet_set_ttl, NULL, RSRC_CONF, "Set the Redis Expiry for keys (in hours)"),
+    AP_INIT_TAKE1("repsheetRedisMaxLength", repsheet_set_length, NULL, RSRC_CONF, "Last n requests kept per IP"),
+    { NULL }
+  };
 
 char *substr(char *string, int start, int end)
 {
@@ -184,7 +200,7 @@ static int repsheet_mod_security_filter(request_rec *r)
 
     ap_log_error(APLOG_MARK, APLOG_DEBUG, 0, r->server, "%s X-WAF-Events %s", config.prefix, waf_events);
     ap_log_error(APLOG_MARK, APLOG_DEBUG, 0, r->server, "%s X-WAF-Score %s", config.prefix, waf_score);
-    
+
     if (waf_events && waf_score ) {
       int erroffset, i , rc, count = 0;
       int ovector[100];
@@ -225,12 +241,13 @@ static void register_hooks(apr_pool_t *pool)
 }
 
 module AP_MODULE_DECLARE_DATA repsheet_module =
-{
-  STANDARD20_MODULE_STUFF,
-  NULL,                /* Per-directory configuration handler */
-  NULL,                /* Merge handler for per-directory configurations */
-  NULL,                /* Per-server configuration handler */
-  NULL,                /* Merge handler for per-server configurations */
-  repsheet_directives, /* Any directives we may have for httpd */
-  register_hooks       /* Our hook registering function */
-};
+  {
+    STANDARD20_MODULE_STUFF,
+    NULL,                /* Per-directory configuration handler */
+    NULL,                /* Merge handler for per-directory configurations */
+    NULL,                /* Per-server configuration handler */
+    NULL,                /* Merge handler for per-server configurations */
+    repsheet_directives, /* Any directives we may have for httpd */
+    register_hooks       /* Our hook registering function */
+  };
+

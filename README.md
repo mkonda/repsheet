@@ -99,6 +99,12 @@ Here's a complete example:
 </IfModule>
 ```
 
+##### ModSecurity Settings
+
+In order to take full advantage of Repsheet, you need to have the proper ModSecurity rules setup. This repository packages a working set of rules as an example. They are the  [OWASP Core Rules](https://github.com/SpiderLabs/owasp-modsecurity-crs) base rules plus the optional rule set that perfoms header tagging. You can and should tune these rules so that they work properly for your enviornment, but remember to have the header tagging rules in place or Repsheet will not be able to see what ModSecurity has alerted on.
+
+##### Cleanup
+
 To ensure that stale IPs are cleaned up from the repsheet, you will need to run the Repsheet cleaner. It is recommended to run this on a schedule via cron. A binary named repsheet_cleaner is installed to `/usr/bin` during the install process. For example, if you want to run the cleaner every 5 minutes, you would create an entry in cron like so:
 
 ```
