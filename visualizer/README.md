@@ -6,7 +6,7 @@ You will need to have Ruby/RubyGems installed. This app has been tested on Ruby 
 
 ``` sh
 bundle install
-ruby app.rb
+shotgun
 ```
 
-Visit [http://localhost:4567](http://localhost:4567) to see the details.
+Visit [http://localhost:4567](http://localhost:9393) to see the details.
