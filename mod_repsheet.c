@@ -167,7 +167,7 @@ static int repsheet_recorder(request_rec *r)
     sprintf(value, "%s,%s,%s,%s,%s", human_time, apr_table_get(r->headers_in, "User-Agent"), r->method, r->uri, r->args);
 
     freeReplyObject(redisCommand(c, "LPUSH %s %s", r->connection->remote_ip, value));
-    freeReplyObject(redisCommand(c, "LTRIM 0 %d", (config.length - 1)));
+    freeReplyObject(redisCommand(c, "LTRIM %s 0 %d", r->connection->remote_ip, (config.length - 1)));
     freeReplyObject(redisCommand(c, "EXPIRE %s %d", r->connection->remote_ip, config.ttl));
     redisFree(c);
   }
