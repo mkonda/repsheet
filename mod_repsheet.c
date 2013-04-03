@@ -134,108 +134,110 @@ char *substr(char *string, int start, int end)
 
 static int repsheet_recorder(request_rec *r)
 {
-  if (config.enabled == 1) {
-    if (!ap_is_initial_req(r)) return DECLINED;
-    apr_time_exp_t start;
-    char           human_time[50];
-    char           value[256]; // TODO: potential overflow here
-    redisContext   *c;
-    redisReply     *reply;
-
-    struct timeval timeout = {0, (config.redis_timeout > 0) ? config.redis_timeout : 10000};
-
-    c = redisConnectWithTimeout((char*) config.redis_host, config.redis_port, timeout);
-    if (c == NULL || c->err) {
-      if (c) {
-        ap_log_error(APLOG_MARK, APLOG_ERR, 0, r->server, "%s Redis Connection Error: %s", config.prefix, c->errstr);
-        redisFree(c);
-      } else {
-        ap_log_error(APLOG_MARK, APLOG_ERR, 0, r->server, "%s Connection Error: can't allocate redis context", config.prefix);
-      }
-
-      return DECLINED;
-    }
-
-    reply = redisCommand(c, "SISMEMBER repsheet %s", r->connection->remote_ip);
-    if (reply->integer == 1) {
-      if (config.action == BLOCK) {
-        // Potentially write to error log when blocking so there is visibility
-        return HTTP_FORBIDDEN;
-      } else {
-        ap_log_error(APLOG_MARK, APLOG_ERR, 0, r->server, "%s IP Address %s was found on the repsheet. No action taken", config.prefix, r->connection->remote_ip);
-        apr_table_set(r->headers_in, "X-Repsheet", "true");
-      }
-    }
-    freeReplyObject(reply);
-
-    apr_time_exp_gmt(&start, r->request_time);
-    sprintf(human_time, "%d/%d/%d %d:%d:%d.%d", (start.tm_mon + 1), start.tm_mday, (1900 + start.tm_year), start.tm_hour, start.tm_min, start.tm_sec, start.tm_usec);
-    sprintf(value, "%s,%s,%s,%s,%s", human_time, apr_table_get(r->headers_in, "User-Agent"), r->method, r->uri, r->args);
-
-    freeReplyObject(redisCommand(c, "LPUSH %s %s", r->connection->remote_ip, value));
-    freeReplyObject(redisCommand(c, "LTRIM %s 0 %d", r->connection->remote_ip, (config.redis_max_length - 1)));
-    freeReplyObject(redisCommand(c, "EXPIRE %s %d", r->connection->remote_ip, config.redis_ttl));
-    redisFree(c);
+  if (!config.enabled || !ap_is_initial_req(r)) {
+    return DECLINED;
   }
+
+  apr_time_exp_t start;
+  char           human_time[50];
+  char           value[256]; // TODO: potential overflow here
+  redisContext   *c;
+  redisReply     *reply;
+
+  struct timeval timeout = {0, (config.redis_timeout > 0) ? config.redis_timeout : 10000};
+
+  c = redisConnectWithTimeout((char*) config.redis_host, config.redis_port, timeout);
+  if (c == NULL || c->err) {
+    if (c) {
+      ap_log_error(APLOG_MARK, APLOG_ERR, 0, r->server, "%s Redis Connection Error: %s", config.prefix, c->errstr);
+      redisFree(c);
+    } else {
+      ap_log_error(APLOG_MARK, APLOG_ERR, 0, r->server, "%s Connection Error: can't allocate redis context", config.prefix);
+    }
+
+    return DECLINED;
+  }
+
+  reply = redisCommand(c, "SISMEMBER repsheet %s", r->connection->remote_ip);
+  if (reply->integer == 1) {
+    if (config.action == BLOCK) {
+      ap_log_error(APLOG_MARK, APLOG_ERR, 0, r->server, "%s %s was blocked by the repsheet", config.prefix, r->connection->remote_ip);
+      return HTTP_FORBIDDEN;
+    } else {
+      ap_log_error(APLOG_MARK, APLOG_ERR, 0, r->server, "%s IP Address %s was found on the repsheet. No action taken", config.prefix, r->connection->remote_ip);
+      apr_table_set(r->headers_in, "X-Repsheet", "true");
+    }
+  }
+  freeReplyObject(reply);
+
+  apr_time_exp_gmt(&start, r->request_time);
+  sprintf(human_time, "%d/%d/%d %d:%d:%d.%d", (start.tm_mon + 1), start.tm_mday, (1900 + start.tm_year), start.tm_hour, start.tm_min, start.tm_sec, start.tm_usec);
+  sprintf(value, "%s,%s,%s,%s,%s", human_time, apr_table_get(r->headers_in, "User-Agent"), r->method, r->uri, r->args);
+
+  freeReplyObject(redisCommand(c, "LPUSH %s %s", r->connection->remote_ip, value));
+  freeReplyObject(redisCommand(c, "LTRIM %s 0 %d", r->connection->remote_ip, (config.redis_max_length - 1)));
+  freeReplyObject(redisCommand(c, "EXPIRE %s %d", r->connection->remote_ip, config.redis_ttl));
+  redisFree(c);
+
   return DECLINED;
 }
 
 
 static int repsheet_mod_security_filter(request_rec *r)
 {
-  if (config.enabled == 1) { // TODO: Possibly do an early return
-    redisContext   *c;
-    redisReply     *reply; // TODO: remove
-
-    struct timeval timeout = {0, (config.redis_timeout > 0) ? config.redis_timeout : 10000};
-
-    c = redisConnectWithTimeout((char*) config.redis_host, config.redis_port, timeout);
-    if (c == NULL || c->err) {
-      if (c) {
-        ap_log_error(APLOG_MARK, APLOG_ERR, 0, r->server, "%s Redis Connection Error: %s", config.prefix, c->errstr);
-        redisFree(c);
-      } else {
-        ap_log_error(APLOG_MARK, APLOG_ERR, 0, r->server, "%s Connection Error: can't allocate redis context", config.prefix);
-      }
-
-      return DECLINED;
-    }
-
-    char *waf_events = (char *)apr_table_get(r->headers_in, "X-WAF-Events");
-    char *waf_score = (char *)apr_table_get(r->headers_in, "X-WAF-Score"); //TODO: delete
-
-    ap_log_error(APLOG_MARK, APLOG_DEBUG, 0, r->server, "%s X-WAF-Events %s", config.prefix, waf_events);
-    ap_log_error(APLOG_MARK, APLOG_DEBUG, 0, r->server, "%s X-WAF-Score %s", config.prefix, waf_score);
-
-    if (waf_events && waf_score ) {
-      int erroffset, i , rc, count = 0;
-      int ovector[100];
-      unsigned int offset = 0;
-      unsigned int len = strlen(waf_events);
-      const char *error;
-      char *results[100];
-      char *event, *prev_event;
-      pcre *re;
-
-      re = pcre_compile ("\\d{6}", PCRE_MULTILINE, &error, &erroffset, 0);
-
-      while (offset < len && (rc = pcre_exec(re, 0, waf_events, len, offset, 0, ovector, sizeof(ovector))) >= 0) {
-        for (i = 0; i < rc; i++) {
-          event = substr(waf_events, ovector[2*i], ovector[2*i] + (ovector[2*i+1] - ovector[2*i]));
-          if (count > 0 && event != prev_event) {
-            freeReplyObject(redisCommand(c, "SADD %s %s", event, r->connection->remote_ip));
-            freeReplyObject(redisCommand(c, "INCR %s:%s", event, r->connection->remote_ip));
-            freeReplyObject(redisCommand(c, "SADD repsheet %s", r->connection->remote_ip));
-            prev_event = event;
-          }
-        }
-        count++;
-        offset = ovector[1];
-      }
-    }
-
-    redisFree(c);
+  if (!config.enabled) {
+    return DECLINED;
   }
+
+  char *waf_events = (char *)apr_table_get(r->headers_in, "X-WAF-Events");
+
+  if (!waf_events) {
+    return DECLINED;
+  }
+
+  redisContext *c;
+  int erroffset, i , rc, count = 0;
+  int ovector[100];
+  unsigned int offset = 0;
+  unsigned int len = strlen(waf_events);
+  const char *error;
+  char *results[100];
+  char *event, *prev_event;
+  pcre *re;
+
+  struct timeval timeout = {0, (config.redis_timeout > 0) ? config.redis_timeout : 10000};
+
+  c = redisConnectWithTimeout((char*) config.redis_host, config.redis_port, timeout);
+  if (c == NULL || c->err) {
+    if (c) {
+      ap_log_error(APLOG_MARK, APLOG_ERR, 0, r->server, "%s Redis Connection Error: %s", config.prefix, c->errstr);
+      redisFree(c);
+    } else {
+      ap_log_error(APLOG_MARK, APLOG_ERR, 0, r->server, "%s Connection Error: can't allocate redis context", config.prefix);
+    }
+
+    return DECLINED;
+  }
+
+  re = pcre_compile ("\\d{6}", PCRE_MULTILINE, &error, &erroffset, 0);
+
+  while (offset < len && (rc = pcre_exec(re, 0, waf_events, len, offset, 0, ovector, sizeof(ovector))) >= 0) {
+    for (i = 0; i < rc; i++) {
+      event = substr(waf_events, ovector[2*i], ovector[2*i] + (ovector[2*i+1] - ovector[2*i]));
+      if (count > 0 && event != prev_event) {
+        freeReplyObject(redisCommand(c, "MULTI"));
+        freeReplyObject(redisCommand(c, "SADD %s %s", event, r->connection->remote_ip));
+        freeReplyObject(redisCommand(c, "INCR %s:%s", event, r->connection->remote_ip));
+        freeReplyObject(redisCommand(c, "SADD repsheet %s", r->connection->remote_ip));
+        freeReplyObject(redisCommand(c, "EXEC"));
+        prev_event = event;
+      }
+    }
+    count++;
+    offset = ovector[1];
+  }
+
+  redisFree(c);
 
   return DECLINED;
 }
@@ -256,4 +258,3 @@ module AP_MODULE_DECLARE_DATA repsheet_module =
     repsheet_directives, /* Any directives we may have for httpd */
     register_hooks       /* Our hook registering function */
   };
-
