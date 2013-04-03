@@ -32,49 +32,54 @@
 
 typedef struct {
   int enabled;
-  int timeout;
   int action;
-  int port;
-  int ttl;
-  int length;
   const char *prefix;
-  const char *host;
+
+  const char *redis_host;
+  int redis_port;
+  int redis_timeout;
+  int redis_ttl;
+  int redis_max_length;
 } repsheet_config;
 static repsheet_config config;
 
 const char *repsheet_set_enabled(cmd_parms *cmd, void *cfg, const char *arg)
 {
-  if (!strcasecmp(arg, "on")) config.enabled = 1; else config.enabled = 0;
+  if (!strcasecmp(arg, "on")) {
+    config.enabled = 1;
+  } else {
+    config.enabled = 0;
+  }
   return NULL;
 }
 
 const char *repsheet_set_timeout(cmd_parms *cmd, void *cfg, const char *arg)
 {
-  config.timeout = atoi(arg) * 1000;
+  config.redis_timeout = atoi(arg) * 1000;
   return NULL;
 }
 
 const char *repsheet_set_host(cmd_parms *cmd, void *cfg, const char *arg)
 {
-  config.host = arg;
+  config.redis_host = arg;
   return NULL;
 }
 
 const char *repsheet_set_port(cmd_parms *cmd, void *cfg, const char *arg)
 {
-  config.port = atoi(arg);
+  config.redis_port = atoi(arg);
   return NULL;
 }
 
 const char *repsheet_set_ttl(cmd_parms *cmd, void *cfg, const char *arg)
 {
-  config.ttl = atoi(arg) * 60 * 60;
+  config.redis_ttl = atoi(arg) * 60 * 60;
   return NULL;
 }
 
 const char *repsheet_set_length(cmd_parms *cmd, void *cfg, const char *arg)
 {
-  config.length = atoi(arg);
+  config.redis_max_length = atoi(arg);
   return NULL;
 }
 
@@ -137,9 +142,9 @@ static int repsheet_recorder(request_rec *r)
     redisContext   *c;
     redisReply     *reply;
 
-    struct timeval timeout = {0, (config.timeout > 0) ? config.timeout : 10000};
+    struct timeval timeout = {0, (config.redis_timeout > 0) ? config.redis_timeout : 10000};
 
-    c = redisConnectWithTimeout((char*) config.host, config.port, timeout);
+    c = redisConnectWithTimeout((char*) config.redis_host, config.redis_port, timeout);
     if (c == NULL || c->err) {
       if (c) {
         ap_log_error(APLOG_MARK, APLOG_ERR, 0, r->server, "%s Redis Connection Error: %s", config.prefix, c->errstr);
@@ -154,6 +159,7 @@ static int repsheet_recorder(request_rec *r)
     reply = redisCommand(c, "SISMEMBER repsheet %s", r->connection->remote_ip);
     if (reply->integer == 1) {
       if (config.action == BLOCK) {
+        // Potentially write to error log when blocking so there is visibility
         return HTTP_FORBIDDEN;
       } else {
         ap_log_error(APLOG_MARK, APLOG_ERR, 0, r->server, "%s IP Address %s was found on the repsheet. No action taken", config.prefix, r->connection->remote_ip);
@@ -167,8 +173,8 @@ static int repsheet_recorder(request_rec *r)
     sprintf(value, "%s,%s,%s,%s,%s", human_time, apr_table_get(r->headers_in, "User-Agent"), r->method, r->uri, r->args);
 
     freeReplyObject(redisCommand(c, "LPUSH %s %s", r->connection->remote_ip, value));
-    freeReplyObject(redisCommand(c, "LTRIM %s 0 %d", r->connection->remote_ip, (config.length - 1)));
-    freeReplyObject(redisCommand(c, "EXPIRE %s %d", r->connection->remote_ip, config.ttl));
+    freeReplyObject(redisCommand(c, "LTRIM %s 0 %d", r->connection->remote_ip, (config.redis_max_length - 1)));
+    freeReplyObject(redisCommand(c, "EXPIRE %s %d", r->connection->remote_ip, config.redis_ttl));
     redisFree(c);
   }
   return DECLINED;
@@ -177,13 +183,13 @@ static int repsheet_recorder(request_rec *r)
 
 static int repsheet_mod_security_filter(request_rec *r)
 {
-  if (config.enabled == 1) {
+  if (config.enabled == 1) { // TODO: Possibly do an early return
     redisContext   *c;
-    redisReply     *reply;
+    redisReply     *reply; // TODO: remove
 
-    struct timeval timeout = {0, (config.timeout > 0) ? config.timeout : 10000};
+    struct timeval timeout = {0, (config.redis_timeout > 0) ? config.redis_timeout : 10000};
 
-    c = redisConnectWithTimeout((char*) config.host, config.port, timeout);
+    c = redisConnectWithTimeout((char*) config.redis_host, config.redis_port, timeout);
     if (c == NULL || c->err) {
       if (c) {
         ap_log_error(APLOG_MARK, APLOG_ERR, 0, r->server, "%s Redis Connection Error: %s", config.prefix, c->errstr);
@@ -196,7 +202,7 @@ static int repsheet_mod_security_filter(request_rec *r)
     }
 
     char *waf_events = (char *)apr_table_get(r->headers_in, "X-WAF-Events");
-    char *waf_score = (char *)apr_table_get(r->headers_in, "X-WAF-Score");
+    char *waf_score = (char *)apr_table_get(r->headers_in, "X-WAF-Score"); //TODO: delete
 
     ap_log_error(APLOG_MARK, APLOG_DEBUG, 0, r->server, "%s X-WAF-Events %s", config.prefix, waf_events);
     ap_log_error(APLOG_MARK, APLOG_DEBUG, 0, r->server, "%s X-WAF-Score %s", config.prefix, waf_score);
