@@ -244,7 +244,7 @@ static int repsheet_mod_security_filter(request_rec *r)
 
 static void register_hooks(apr_pool_t *pool)
 {
-  ap_hook_log_transaction(repsheet_recorder, NULL, NULL, APR_HOOK_LAST);
+  ap_hook_post_read_request(repsheet_recorder, NULL, NULL, APR_HOOK_LAST);
   ap_hook_fixups(repsheet_mod_security_filter, NULL, NULL, APR_HOOK_REALLY_LAST);
 }
 
