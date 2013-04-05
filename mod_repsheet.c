@@ -151,7 +151,7 @@ redisContext *get_redis_context(request_rec *r)
   }
 }
 
-void record(redisContext *context, request_rec *r)
+static void record(redisContext *context, request_rec *r)
 {
   apr_time_exp_t start;
   char           human_time[50];
@@ -168,68 +168,15 @@ void record(redisContext *context, request_rec *r)
   freeReplyObject(redisCommand(context, "EXEC"));
 }
 
-static int repsheet_recorder(request_rec *r)
+static void process_waf_events(redisContext *context, request_rec *r, char *waf_events)
 {
-  if (!config.enabled || !ap_is_initial_req(r)) {
-    return DECLINED;
-  }
-
-  redisContext *context;
-  redisReply   *reply;
-
-  context = get_redis_context(r);
-
-  if (context == NULL) {
-    return DECLINED;
-  }
-
-  reply = redisCommand(context, "SISMEMBER repsheet %s", r->connection->remote_ip);
-  if (reply->integer == 1) {
-    if (config.action == BLOCK) {
-      ap_log_error(APLOG_MARK, APLOG_ERR, 0, r->server, "%s %s was blocked by the repsheet", config.prefix, r->connection->remote_ip);
-      return HTTP_FORBIDDEN;
-    } else {
-      ap_log_error(APLOG_MARK, APLOG_ERR, 0, r->server, "%s IP Address %s was found on the repsheet. No action taken", config.prefix, r->connection->remote_ip);
-      apr_table_set(r->headers_in, "X-Repsheet", "true");
-    }
-  }
-  freeReplyObject(reply);
-
-  record(context, r); // TODO: add reply checking to record to deal with errors writing to Redis
-
-  redisFree(context);
-
-  return DECLINED;
-}
-
-
-static int repsheet_mod_security_filter(request_rec *r)
-{
-  if (!config.enabled) {
-    return DECLINED;
-  }
-
-  char *waf_events = (char *)apr_table_get(r->headers_in, "X-WAF-Events");
-
-  if (!waf_events) {
-    return DECLINED;
-  }
-
   int erroffset, i , rc, count = 0;
   int ovector[100];
   unsigned int offset = 0;
   unsigned int len = strlen(waf_events);
-  char *results[100];
   char *event, *prev_event;
   const char *error;
   pcre *re;
-  redisContext *context;
-
-  context = get_redis_context(r);
-
-  if (context == NULL) {
-    return DECLINED;
-  }
 
   re = pcre_compile ("\\d{6}", PCRE_MULTILINE, &error, &erroffset, 0);
 
@@ -248,6 +195,75 @@ static int repsheet_mod_security_filter(request_rec *r)
     count++;
     offset = ovector[1];
   }
+}
+
+static int repsheet_offender(redisContext *context, request_rec *r)
+{
+  redisReply   *reply;
+
+  reply = redisCommand(context, "SISMEMBER repsheet %s", r->connection->remote_ip);
+
+  if (reply->integer == 1) {
+    freeReplyObject(reply);
+    return config.action;
+  }
+
+  freeReplyObject(reply);
+  return 0;
+}
+
+static int repsheet_recorder(request_rec *r)
+{
+  if (!config.enabled || !ap_is_initial_req(r)) {
+    return DECLINED;
+  }
+
+  redisContext *context;
+
+  context = get_redis_context(r);
+
+  if (context == NULL) {
+    return DECLINED;
+  }
+
+  if (repsheet_offender(context, r)) {
+    if (config.action == BLOCK) {
+      ap_log_error(APLOG_MARK, APLOG_ERR, 0, r->server, "%s %s was blocked by the repsheet", config.prefix, r->connection->remote_ip);
+      return HTTP_FORBIDDEN;
+    } else {
+      ap_log_error(APLOG_MARK, APLOG_ERR, 0, r->server, "%s IP Address %s was found on the repsheet. No action taken", config.prefix, r->connection->remote_ip);
+      apr_table_set(r->headers_in, "X-Repsheet", "true");
+    }
+  }
+
+  record(context, r); // TODO: add reply checking to record to deal with errors writing to Redis
+
+  redisFree(context);
+
+  return DECLINED;
+}
+
+static int repsheet_mod_security_filter(request_rec *r)
+{
+  if (!config.enabled) {
+    return DECLINED;
+  }
+
+  char *waf_events = (char *)apr_table_get(r->headers_in, "X-WAF-Events");
+
+  if (!waf_events) {
+    return DECLINED;
+  }
+
+  redisContext *context;
+
+  context = get_redis_context(r);
+
+  if (context == NULL) {
+    return DECLINED;
+  }
+
+  process_waf_events(context, r, waf_events);
 
   redisFree(context);
 
