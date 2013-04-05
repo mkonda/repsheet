@@ -132,33 +132,58 @@ char *substr(char *string, int start, int end)
   return ret;
 }
 
+redisContext *get_redis_context(request_rec *r)
+{
+  redisContext *context;
+  struct timeval timeout = {0, (config.redis_timeout > 0) ? config.redis_timeout : 10000};
+
+  context = redisConnectWithTimeout((char*) config.redis_host, config.redis_port, timeout);
+  if (context == NULL || context->err) {
+    if (context) {
+      ap_log_error(APLOG_MARK, APLOG_ERR, 0, r->server, "%s Redis Connection Error: %s", config.prefix, context->errstr);
+      redisFree(context);
+    } else {
+      ap_log_error(APLOG_MARK, APLOG_ERR, 0, r->server, "%s Connection Error: can't allocate redis context", config.prefix);
+    }
+    return NULL;
+  } else {
+    return context;
+  }
+}
+
+void record(redisContext *context, request_rec *r)
+{
+  apr_time_exp_t start;
+  char           human_time[50];
+  char           value[256]; // TODO: potential overflow here
+
+  apr_time_exp_gmt(&start, r->request_time);
+  sprintf(human_time, "%d/%d/%d %d:%d:%d.%d", (start.tm_mon + 1), start.tm_mday, (1900 + start.tm_year), start.tm_hour, start.tm_min, start.tm_sec, start.tm_usec);
+  sprintf(value, "%s,%s,%s,%s,%s", human_time, apr_table_get(r->headers_in, "User-Agent"), r->method, r->uri, r->args);
+
+  freeReplyObject(redisCommand(context, "MULTI"));
+  freeReplyObject(redisCommand(context, "LPUSH %s %s", r->connection->remote_ip, value));
+  freeReplyObject(redisCommand(context, "LTRIM %s 0 %d", r->connection->remote_ip, (config.redis_max_length - 1)));
+  freeReplyObject(redisCommand(context, "EXPIRE %s %d", r->connection->remote_ip, config.redis_ttl));
+  freeReplyObject(redisCommand(context, "EXEC"));
+}
+
 static int repsheet_recorder(request_rec *r)
 {
   if (!config.enabled || !ap_is_initial_req(r)) {
     return DECLINED;
   }
 
-  apr_time_exp_t start;
-  char           human_time[50];
-  char           value[256]; // TODO: potential overflow here
-  redisContext   *c;
-  redisReply     *reply;
+  redisContext *context;
+  redisReply   *reply;
 
-  struct timeval timeout = {0, (config.redis_timeout > 0) ? config.redis_timeout : 10000};
+  context = get_redis_context(r);
 
-  c = redisConnectWithTimeout((char*) config.redis_host, config.redis_port, timeout);
-  if (c == NULL || c->err) {
-    if (c) {
-      ap_log_error(APLOG_MARK, APLOG_ERR, 0, r->server, "%s Redis Connection Error: %s", config.prefix, c->errstr);
-      redisFree(c);
-    } else {
-      ap_log_error(APLOG_MARK, APLOG_ERR, 0, r->server, "%s Connection Error: can't allocate redis context", config.prefix);
-    }
-
+  if (context == NULL) {
     return DECLINED;
   }
 
-  reply = redisCommand(c, "SISMEMBER repsheet %s", r->connection->remote_ip);
+  reply = redisCommand(context, "SISMEMBER repsheet %s", r->connection->remote_ip);
   if (reply->integer == 1) {
     if (config.action == BLOCK) {
       ap_log_error(APLOG_MARK, APLOG_ERR, 0, r->server, "%s %s was blocked by the repsheet", config.prefix, r->connection->remote_ip);
@@ -170,14 +195,9 @@ static int repsheet_recorder(request_rec *r)
   }
   freeReplyObject(reply);
 
-  apr_time_exp_gmt(&start, r->request_time);
-  sprintf(human_time, "%d/%d/%d %d:%d:%d.%d", (start.tm_mon + 1), start.tm_mday, (1900 + start.tm_year), start.tm_hour, start.tm_min, start.tm_sec, start.tm_usec);
-  sprintf(value, "%s,%s,%s,%s,%s", human_time, apr_table_get(r->headers_in, "User-Agent"), r->method, r->uri, r->args);
+  record(context, r); // TODO: add reply checking to record to deal with errors writing to Redis
 
-  freeReplyObject(redisCommand(c, "LPUSH %s %s", r->connection->remote_ip, value));
-  freeReplyObject(redisCommand(c, "LTRIM %s 0 %d", r->connection->remote_ip, (config.redis_max_length - 1)));
-  freeReplyObject(redisCommand(c, "EXPIRE %s %d", r->connection->remote_ip, config.redis_ttl));
-  redisFree(c);
+  redisFree(context);
 
   return DECLINED;
 }
@@ -195,27 +215,19 @@ static int repsheet_mod_security_filter(request_rec *r)
     return DECLINED;
   }
 
-  redisContext *c;
   int erroffset, i , rc, count = 0;
   int ovector[100];
   unsigned int offset = 0;
   unsigned int len = strlen(waf_events);
-  const char *error;
   char *results[100];
   char *event, *prev_event;
+  const char *error;
   pcre *re;
+  redisContext *context;
 
-  struct timeval timeout = {0, (config.redis_timeout > 0) ? config.redis_timeout : 10000};
+  context = get_redis_context(r);
 
-  c = redisConnectWithTimeout((char*) config.redis_host, config.redis_port, timeout);
-  if (c == NULL || c->err) {
-    if (c) {
-      ap_log_error(APLOG_MARK, APLOG_ERR, 0, r->server, "%s Redis Connection Error: %s", config.prefix, c->errstr);
-      redisFree(c);
-    } else {
-      ap_log_error(APLOG_MARK, APLOG_ERR, 0, r->server, "%s Connection Error: can't allocate redis context", config.prefix);
-    }
-
+  if (context == NULL) {
     return DECLINED;
   }
 
@@ -225,11 +237,11 @@ static int repsheet_mod_security_filter(request_rec *r)
     for (i = 0; i < rc; i++) {
       event = substr(waf_events, ovector[2*i], ovector[2*i] + (ovector[2*i+1] - ovector[2*i]));
       if (count > 0 && event != prev_event) {
-        freeReplyObject(redisCommand(c, "MULTI"));
-        freeReplyObject(redisCommand(c, "SADD %s %s", event, r->connection->remote_ip));
-        freeReplyObject(redisCommand(c, "INCR %s:%s", event, r->connection->remote_ip));
-        freeReplyObject(redisCommand(c, "SADD repsheet %s", r->connection->remote_ip));
-        freeReplyObject(redisCommand(c, "EXEC"));
+        freeReplyObject(redisCommand(context, "MULTI"));
+        freeReplyObject(redisCommand(context, "SADD %s %s", event, r->connection->remote_ip));
+        freeReplyObject(redisCommand(context, "INCR %s:%s", event, r->connection->remote_ip));
+        freeReplyObject(redisCommand(context, "SADD repsheet %s", r->connection->remote_ip));
+        freeReplyObject(redisCommand(context, "EXEC"));
         prev_event = event;
       }
     }
@@ -237,7 +249,7 @@ static int repsheet_mod_security_filter(request_rec *r)
     offset = ovector[1];
   }
 
-  redisFree(c);
+  redisFree(context);
 
   return DECLINED;
 }
