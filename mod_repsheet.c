@@ -103,18 +103,18 @@ const char *repsheet_set_action(cmd_parms *cmd, void *cfg, const char *arg)
 
 static const command_rec repsheet_directives[] =
   {
-    AP_INIT_TAKE1("repsheetEnabled", repsheet_set_enabled, NULL, RSRC_CONF, "Enable or disable mod_repsheet"),
-    AP_INIT_TAKE1("repsheetAction", repsheet_set_action, NULL, RSRC_CONF, "Set the action"),
-    AP_INIT_TAKE1("repsheetPrefix", repsheet_set_prefix, NULL, RSRC_CONF, "Set the log prefix"),
-    AP_INIT_TAKE1("repsheetRedisTimeout", repsheet_set_timeout, NULL, RSRC_CONF, "Set the Redis timeout"),
-    AP_INIT_TAKE1("repsheetRedisHost", repsheet_set_host, NULL, RSRC_CONF, "Set the Redis host"),
-    AP_INIT_TAKE1("repsheetRedisPort", repsheet_set_port, NULL, RSRC_CONF, "Set the Redis port"),
-    AP_INIT_TAKE1("repsheetRedisTTL", repsheet_set_ttl, NULL, RSRC_CONF, "Set the Redis Expiry for keys (in hours)"),
-    AP_INIT_TAKE1("repsheetRedisMaxLength", repsheet_set_length, NULL, RSRC_CONF, "Last n requests kept per IP"),
+    AP_INIT_TAKE1("repsheetEnabled",        repsheet_set_enabled, NULL, RSRC_CONF, "Enable or disable mod_repsheet"),
+    AP_INIT_TAKE1("repsheetAction",         repsheet_set_action,  NULL, RSRC_CONF, "Set the action"),
+    AP_INIT_TAKE1("repsheetPrefix",         repsheet_set_prefix,  NULL, RSRC_CONF, "Set the log prefix"),
+    AP_INIT_TAKE1("repsheetRedisTimeout",   repsheet_set_timeout, NULL, RSRC_CONF, "Set the Redis timeout"),
+    AP_INIT_TAKE1("repsheetRedisHost",      repsheet_set_host,    NULL, RSRC_CONF, "Set the Redis host"),
+    AP_INIT_TAKE1("repsheetRedisPort",      repsheet_set_port,    NULL, RSRC_CONF, "Set the Redis port"),
+    AP_INIT_TAKE1("repsheetRedisTTL",       repsheet_set_ttl,     NULL, RSRC_CONF, "Set the Redis Expiry for keys (in hours)"),
+    AP_INIT_TAKE1("repsheetRedisMaxLength", repsheet_set_length,  NULL, RSRC_CONF, "Last n requests kept per IP"),
     { NULL }
   };
 
-char *substr(char *string, int start, int end)
+static char *substr(char *string, int start, int end)
 {
   char *ret = malloc(strlen(string) + 1);
   char *p = ret;
@@ -132,7 +132,7 @@ char *substr(char *string, int start, int end)
   return ret;
 }
 
-redisContext *get_redis_context(request_rec *r)
+static redisContext *get_redis_context(request_rec *r)
 {
   redisContext *context;
   struct timeval timeout = {0, (config.redis_timeout > 0) ? config.redis_timeout : 10000};
@@ -149,6 +149,21 @@ redisContext *get_redis_context(request_rec *r)
   } else {
     return context;
   }
+}
+
+static int repsheet_offender(redisContext *context, request_rec *r)
+{
+  redisReply   *reply;
+
+  reply = redisCommand(context, "SISMEMBER repsheet %s", r->connection->remote_ip);
+
+  if (reply->integer == 1) {
+    freeReplyObject(reply);
+    return config.action;
+  }
+
+  freeReplyObject(reply);
+  return 0;
 }
 
 static void record(redisContext *context, request_rec *r)
@@ -195,21 +210,6 @@ static void process_waf_events(redisContext *context, request_rec *r, char *waf_
     count++;
     offset = ovector[1];
   }
-}
-
-static int repsheet_offender(redisContext *context, request_rec *r)
-{
-  redisReply   *reply;
-
-  reply = redisCommand(context, "SISMEMBER repsheet %s", r->connection->remote_ip);
-
-  if (reply->integer == 1) {
-    freeReplyObject(reply);
-    return config.action;
-  }
-
-  freeReplyObject(reply);
-  return 0;
 }
 
 static int repsheet_recorder(request_rec *r)
