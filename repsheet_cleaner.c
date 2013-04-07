@@ -42,8 +42,6 @@ int main(int argc, char *argv[])
         abort();
       }
 
-  printf("Starting Repsheet cleanup on %s:%d\n", host, port);
-
   context = redisConnect(host, port);
   if (context == NULL || context->err) {
     if (context) {
@@ -61,7 +59,7 @@ int main(int argc, char *argv[])
   for (i = 0; i < repsheet_members->elements; i++) {
     reply = redisCommand(context, "EXISTS %s", repsheet_members->element[i]->str);
     if (reply->integer == 0) {
-      printf("  Removing %s\n", repsheet_members->element[i]->str);
+      printf("Removing %s\n", repsheet_members->element[i]->str);
       freeReplyObject(redisCommand(context, "SREM repsheet %s", repsheet_members->element[i]->str));
     }
     freeReplyObject(reply);
@@ -69,8 +67,6 @@ int main(int argc, char *argv[])
 
   freeReplyObject(repsheet_members);
   redisFree(context);
-
-  printf("Repsheet cleanup complete\n");
 
   return 0;
 }
