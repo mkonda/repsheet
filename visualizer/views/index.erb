@@ -59,8 +59,8 @@
 
       <div id="individual">
 	<p class="announce">Breakdown by IP</p>
-	<% @data[:ips].each do |key, value| %>
-          <script>donut(<%= value.keys.to_json %>, <%= {:label => key, :pct => value.values}.to_json %>);</script>
+  <% @data[:ips] = @data[:ips].sort_by {|k,v| -v.values.inject(:+)}.each do |key, value| %>
+    <script>donut(<%= value.keys.to_json %>, <%= {:label => key, :pct => value.values}.to_json %>);</script>
 	<% end %>
       </div>
     </div>
