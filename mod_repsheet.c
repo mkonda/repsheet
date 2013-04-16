@@ -153,10 +153,15 @@ static redisContext *get_redis_context(request_rec *r)
 
 static int repsheet_offender(redisContext *context, request_rec *r)
 {
-  redisReply   *reply;
+  redisReply *reply;
+
+  reply = redisCommand(context, "SISMEMBER repsheet:blacklist %s", r->connection->remote_ip);
+  if (reply->integer == 1) {
+    freeReplyObject(reply);
+    return BLOCK;
+  }
 
   reply = redisCommand(context, "SISMEMBER repsheet %s", r->connection->remote_ip);
-
   if (reply->integer == 1) {
     freeReplyObject(reply);
     return config.action;
