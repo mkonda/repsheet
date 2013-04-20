@@ -76,3 +76,20 @@ LoadModule security2_module modules/mod_security2.so
 </IfModule>
 EOF
 fi
+
+if [ ! -d "vendor/geoip" ]; then
+    pushd vendor
+    mkdir geoip
+    pushd geoip
+    wget http://geolite.maxmind.com/download/geoip/database/GeoLiteCountry/GeoIP.dat.gz
+    wget http://geolite.maxmind.com/download/geoip/database/GeoLiteCity.dat.gz
+    gunzip GeoIP.dat.gz
+    gunzip GeoLiteCity.dat.gz
+    wget http://www.maxmind.com/download/geoip/api/mod_geoip2/mod_geoip2-latest.tar.gz
+    tar xvzf mod_geoip2-latest.tar.gz
+    pushd mod_geoip2_1.2.8
+    ../../../build/bin/apxs -i -a -L../../../build/lib -I../../../build/include/ -lGeoIP -c mod_geoip.c
+    popd
+    popd
+    popd
+fi
