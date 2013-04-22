@@ -81,15 +81,25 @@ if [ ! -d "vendor/geoip" ]; then
     pushd vendor
     mkdir geoip
     pushd geoip
-    wget http://geolite.maxmind.com/download/geoip/database/GeoLiteCountry/GeoIP.dat.gz
-    wget http://geolite.maxmind.com/download/geoip/database/GeoLiteCity.dat.gz
-    gunzip GeoIP.dat.gz
+    curl -O http://geolite.maxmind.com/download/geoip/database/GeoLiteCity.dat.gz
     gunzip GeoLiteCity.dat.gz
-    wget http://www.maxmind.com/download/geoip/api/mod_geoip2/mod_geoip2-latest.tar.gz
+    cp GeoLiteCity.dat ../../build/conf
+    curl -O http://www.maxmind.com/download/geoip/api/mod_geoip2/mod_geoip2-latest.tar.gz
     tar xvzf mod_geoip2-latest.tar.gz
     pushd mod_geoip2_1.2.8
     ../../../build/bin/apxs -i -a -L../../../build/lib -I../../../build/include/ -lGeoIP -c mod_geoip.c
     popd
     popd
     popd
+
+    sed -i.bak '269s/.*/LogFormat "%h %l %u %t \\"%r\\" %>s %b \\"%{GEOIP_COUNTRY_CODE}e %{GEOIP_CITY}e %{GEOIP_REGION_NAME}e %{GEOIP_POSTAL_CODE}e %{GEOIP_LATITUDE}e %{GEOIP_LONGITUDE}e\\"" common/' build/conf/httpd.conf
+
+cat <<EOF >> build/conf/httpd.conf
+
+<IfModule geoip_module>
+  GeoIPEnable On
+  GeoIPDBFile `pwd`/build/conf/GeoLiteCity.dat
+  GeoIPOutput All
+</IfModule>
+EOF
 fi
