@@ -6,7 +6,7 @@ describe "Repsheet Bootstrap" do
   end
 
   it "Apache is running" do
-    Curl.get("http://localhost:8888").body_str.should == "<html><body><h1>It works!</h1></body></html>"
+    Curl.get("http://127.0.0.1:8888").body_str.should == "<html><body><h1>It works!</h1></body></html>"
   end
 end
 
@@ -15,7 +15,7 @@ describe "Repsheet Recorder" do
     redis = Redis.new
     redis.flushdb
 
-    Curl.get "http://localhost:8888"
+    Curl.get "http://127.0.0.1:8888"
     sleep(1)
 
     redis.llen("127.0.0.1").should == 1
@@ -27,8 +27,8 @@ describe "Repsheet Recorder" do
 
     c = Curl::Easy.new
     3.times do
-      c.url = "http://localhost:8888"
-      c.perform 
+      c.url = "http://127.0.0.1:8888"
+      c.perform
     end
 
     redis.llen("127.0.0.1").should == 2
@@ -40,7 +40,7 @@ describe "Repsheet ModSecurity Integration" do
     redis = Redis.new
     redis.flushdb
 
-    Curl.get "http://localhost:8888?../../"
+    Curl.get "http://127.0.0.1:8888?../../"
 
     redis.type("950103:127.0.0.1").should == "string"
     redis.type("950103").should == "set"
@@ -53,7 +53,7 @@ describe "Repsheet ModSecurity Integration" do
 
     redis.sismember("repsheet", "127.0.0.1").should be_false
 
-    Curl.get "http://localhost:8888?../../"
+    Curl.get "http://127.0.0.1:8888?../../"
 
     redis.sismember("repsheet", "127.0.0.1").should be_true
   end
