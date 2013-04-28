@@ -31,7 +31,8 @@
 #define BLOCK 2
 
 typedef struct {
-  int enabled;
+  int recorder_enabled;
+  int filter_enabled;
   int action;
   const char *prefix;
 
@@ -43,12 +44,22 @@ typedef struct {
 } repsheet_config;
 static repsheet_config config;
 
-const char *repsheet_set_enabled(cmd_parms *cmd, void *cfg, const char *arg)
+const char *repsheet_set_recorder_enabled(cmd_parms *cmd, void *cfg, const char *arg)
 {
   if (!strcasecmp(arg, "on")) {
-    config.enabled = 1;
+    config.recorder_enabled = 1;
   } else {
-    config.enabled = 0;
+    config.recorder_enabled = 0;
+  }
+  return NULL;
+}
+
+const char *repsheet_set_filter_enabled(cmd_parms *cmd, void *cfg, const char *arg)
+{
+  if (!strcasecmp(arg, "on")) {
+    config.filter_enabled = 1;
+  } else {
+    config.filter_enabled = 0;
   }
   return NULL;
 }
@@ -103,14 +114,15 @@ const char *repsheet_set_action(cmd_parms *cmd, void *cfg, const char *arg)
 
 static const command_rec repsheet_directives[] =
   {
-    AP_INIT_TAKE1("repsheetEnabled",        repsheet_set_enabled, NULL, RSRC_CONF, "Enable or disable mod_repsheet"),
-    AP_INIT_TAKE1("repsheetAction",         repsheet_set_action,  NULL, RSRC_CONF, "Set the action"),
-    AP_INIT_TAKE1("repsheetPrefix",         repsheet_set_prefix,  NULL, RSRC_CONF, "Set the log prefix"),
-    AP_INIT_TAKE1("repsheetRedisTimeout",   repsheet_set_timeout, NULL, RSRC_CONF, "Set the Redis timeout"),
-    AP_INIT_TAKE1("repsheetRedisHost",      repsheet_set_host,    NULL, RSRC_CONF, "Set the Redis host"),
-    AP_INIT_TAKE1("repsheetRedisPort",      repsheet_set_port,    NULL, RSRC_CONF, "Set the Redis port"),
-    AP_INIT_TAKE1("repsheetRedisTTL",       repsheet_set_ttl,     NULL, RSRC_CONF, "Set the Redis Expiry for keys (in hours)"),
-    AP_INIT_TAKE1("repsheetRedisMaxLength", repsheet_set_length,  NULL, RSRC_CONF, "Last n requests kept per IP"),
+    AP_INIT_TAKE1("repsheetRecorder",        repsheet_set_recorder_enabled,  NULL, RSRC_CONF, "Enable or disable mod_repsheet"),
+    AP_INIT_TAKE1("repsheetFilter",          repsheet_set_filter_enabled,    NULL, RSRC_CONF, "Enable or disable mod_repsheet"),
+    AP_INIT_TAKE1("repsheetAction",          repsheet_set_action,            NULL, RSRC_CONF, "Set the action"),
+    AP_INIT_TAKE1("repsheetPrefix",          repsheet_set_prefix,            NULL, RSRC_CONF, "Set the log prefix"),
+    AP_INIT_TAKE1("repsheetRedisTimeout",    repsheet_set_timeout,           NULL, RSRC_CONF, "Set the Redis timeout"),
+    AP_INIT_TAKE1("repsheetRedisHost",       repsheet_set_host,              NULL, RSRC_CONF, "Set the Redis host"),
+    AP_INIT_TAKE1("repsheetRedisPort",       repsheet_set_port,              NULL, RSRC_CONF, "Set the Redis port"),
+    AP_INIT_TAKE1("repsheetRedisTTL",        repsheet_set_ttl,               NULL, RSRC_CONF, "Set the Redis Expiry for keys (in hours)"),
+    AP_INIT_TAKE1("repsheetRedisMaxLength",  repsheet_set_length,            NULL, RSRC_CONF, "Last n requests kept per IP"),
     { NULL }
   };
 
@@ -219,7 +231,7 @@ static void process_waf_events(redisContext *context, request_rec *r, char *waf_
 
 static int repsheet_recorder(request_rec *r)
 {
-  if (!config.enabled || !ap_is_initial_req(r)) {
+  if (!config.recorder_enabled || !ap_is_initial_req(r)) {
     return DECLINED;
   }
 
@@ -250,7 +262,7 @@ static int repsheet_recorder(request_rec *r)
 
 static int repsheet_mod_security_filter(request_rec *r)
 {
-  if (!config.enabled) {
+  if (!config.filter_enabled) {
     return DECLINED;
   }
 
