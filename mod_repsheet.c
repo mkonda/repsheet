@@ -167,14 +167,14 @@ static int repsheet_offender(redisContext *context, request_rec *r)
 {
   redisReply *reply;
 
-  reply = redisCommand(context, "SISMEMBER repsheet:blacklist %s", r->connection->remote_ip);
-  if (reply->integer == 1) {
+  reply = redisCommand(context, "GET %s:repsheet:blacklist", r->connection->remote_ip);
+  if (reply->str && strcmp(reply->str, "true") == 0) {
     freeReplyObject(reply);
     return BLOCK;
   }
 
-  reply = redisCommand(context, "SISMEMBER repsheet %s", r->connection->remote_ip);
-  if (reply->integer == 1) {
+  reply = redisCommand(context, "GET %s:repsheet", r->connection->remote_ip);
+  if (reply->str && strcmp(reply->str, "true") == 0) {
     freeReplyObject(reply);
     return config.action;
   }
@@ -193,11 +193,8 @@ static void record(redisContext *context, request_rec *r)
   sprintf(human_time, "%d/%d/%d %d:%d:%d.%d", (start.tm_mon + 1), start.tm_mday, (1900 + start.tm_year), start.tm_hour, start.tm_min, start.tm_sec, start.tm_usec);
   sprintf(value, "%s,%s,%s,%s,%s", human_time, apr_table_get(r->headers_in, "User-Agent"), r->method, r->uri, r->args);
 
-  freeReplyObject(redisCommand(context, "MULTI"));
-  freeReplyObject(redisCommand(context, "LPUSH %s %s", r->connection->remote_ip, value));
-  freeReplyObject(redisCommand(context, "LTRIM %s 0 %d", r->connection->remote_ip, (config.redis_max_length - 1)));
-  freeReplyObject(redisCommand(context, "EXPIRE %s %d", r->connection->remote_ip, config.redis_ttl));
-  freeReplyObject(redisCommand(context, "EXEC"));
+  freeReplyObject(redisCommand(context, "LPUSH %s:requests %s", r->connection->remote_ip, value));
+  freeReplyObject(redisCommand(context, "LTRIM %s:requests 0 %d", r->connection->remote_ip, (config.redis_max_length - 1)));
 }
 
 static void process_waf_events(redisContext *context, request_rec *r, char *waf_events)
@@ -216,11 +213,9 @@ static void process_waf_events(redisContext *context, request_rec *r, char *waf_
     for (i = 0; i < rc; i++) {
       event = substr(waf_events, ovector[2*i], ovector[2*i] + (ovector[2*i+1] - ovector[2*i]));
       if (count > 0 && event != prev_event) {
-        freeReplyObject(redisCommand(context, "MULTI"));
-        freeReplyObject(redisCommand(context, "SADD %s %s", event, r->connection->remote_ip));
-        freeReplyObject(redisCommand(context, "INCR %s:%s", event, r->connection->remote_ip));
-        freeReplyObject(redisCommand(context, "SADD repsheet %s", r->connection->remote_ip));
-        freeReplyObject(redisCommand(context, "EXEC"));
+        freeReplyObject(redisCommand(context, "SADD %s:detected %s", r->connection->remote_ip, event));
+        freeReplyObject(redisCommand(context, "INCR %s:%s", r->connection->remote_ip, event));
+        freeReplyObject(redisCommand(context, "SET  %s:repsheet 1", r->connection->remote_ip, 1));
         prev_event = event;
       }
     }

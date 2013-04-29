@@ -1,60 +1,48 @@
 require 'spec_helper'
 
-describe "Repsheet Bootstrap" do
-  it "Redis is running" do
-    Redis.new.ping.should == "PONG"
+describe "Integration Specs" do
+
+  before do
+    @redis = Redis.new
+    @redis.flushdb
   end
 
-  it "Apache is running" do
-    Curl.get("http://127.0.0.1:8888").body_str.should == "<html><body><h1>It works!</h1></body></html>"
-  end
-end
+  after  { @redis.flushdb }
 
-describe "Repsheet Recorder" do
-  it "Records the IP, User Agent, Method, URI, and Arguments during a request" do
-    redis = Redis.new
-    redis.flushdb
-
-    Curl.get "http://127.0.0.1:8888"
-    sleep(1)
-
-    redis.llen("127.0.0.1").should == 1
-  end
-
-  it "Trims the number of entries for an IP to the number specified" do
-    redis = Redis.new
-    redis.flushdb
-
-    c = Curl::Easy.new
-    3.times do
-      c.url = "http://127.0.0.1:8888"
-      c.perform
+  describe "Bootstrap" do
+    it "Redis is running" do
+      @redis.ping.should == "PONG"
     end
 
-    redis.llen("127.0.0.1").should == 2
-  end
-end
-
-describe "Repsheet ModSecurity Integration" do
-  it "Creates the proper Redis keys when a security rule is triggered" do
-    redis = Redis.new
-    redis.flushdb
-
-    Curl.get "http://127.0.0.1:8888?../../"
-
-    redis.type("950103:127.0.0.1").should == "string"
-    redis.type("950103").should == "set"
-    redis.type("repsheet").should == "set"
+    it "Apache is running" do
+      Curl.get("http://127.0.0.1:8888").body_str.should == "<html><body><h1>It works!</h1></body></html>"
+    end
   end
 
-  it "Adds the offending IP address to the repsheet" do
-    redis = Redis.new
-    redis.flushdb
+  describe "Recorder" do
+    it "Records the IP, User Agent, Method, URI, and Arguments during a request" do
+      Curl.get "http://127.0.0.1:8888"
 
-    redis.sismember("repsheet", "127.0.0.1").should be_false
+      @redis.llen("127.0.0.1:requests").should == 1
+    end
+  end
 
-    Curl.get "http://127.0.0.1:8888?../../"
+  describe "ModSecurity Integration" do
+    it "Creates the proper Redis keys when a security rule is triggered" do
+      Curl.get "http://127.0.0.1:8888?../../"
 
-    redis.sismember("repsheet", "127.0.0.1").should be_true
+      @redis.type("127.0.0.1:requests").should == "list"
+      @redis.type("127.0.0.1:detected").should == "set"
+      @redis.type("127.0.0.1:repsheet").should == "string"
+      @redis.type("127.0.0.1:950103").should == "string"
+    end
+
+    it "Adds the offending IP address to the repsheet" do
+      @redis.get("127.0.0.1:repsheet").should be_false
+
+      Curl.get "http://127.0.0.1:8888?../../"
+
+      @redis.get("127.0.0.1:repsheet").should be_true
+    end
   end
 end
