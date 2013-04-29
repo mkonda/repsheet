@@ -34,7 +34,7 @@ describe "Integration Specs" do
       @redis.type("127.0.0.1:requests").should == "list"
       @redis.type("127.0.0.1:detected").should == "set"
       @redis.type("127.0.0.1:repsheet").should == "string"
-      @redis.type("127.0.0.1:950103").should == "string"
+      @redis.type("127.0.0.1:950103:count").should == "string"
     end
 
     it "Adds the offending IP address to the repsheet" do

@@ -42,7 +42,6 @@
   </head>
 
   <body>
-
     <div class="navbar navbar-inverse navbar-fixed-top">
       <div class="navbar-inner">
         <div class="container">
@@ -53,15 +52,15 @@
 
     <div class="container">
       <div id="total">
-	<p class="announce">Mod Security Rule Breakdown</p>
-	<script>pie(<%= @data[:rules].collect {|k,v| {"legendLabel" => k, "magnitude" => v}}.to_json %>);</script>
+        <p class="announce">Mod Security Rule Breakdown</p>
+	<script>pie(<%= @aggregate.collect {|k,v| {"legendLabel" => k, "magnitude" => v}}.to_json %>);</script>
       </div>
 
       <div id="individual">
-	<p class="announce">Breakdown by IP</p>
-  <% @data[:ips] = @data[:ips].sort_by {|k,v| -v.values.inject(:+)}.each do |key, value| %>
-    <script>donut(<%= value.keys.to_json %>, <%= {:label => key, :pct => value.values}.to_json %>);</script>
-	<% end %>
+        <p class="announce">Breakdown by IP</p>
+	<% @data.each do |ip, data| %>
+	  <script>donut(<%= data["totals"].keys.to_json %>, <%= {:label => ip, :pct => data["totals"].values}.to_json %>);</script>
+        <% end %>
       </div>
     </div>
   </body>

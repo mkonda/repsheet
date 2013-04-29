@@ -4,21 +4,17 @@ require 'json'
 
 class Visualizer < Sinatra::Base
   get '/' do
-    @data = {:rules => {}, :ips => {}}
     redis = Redis.new(:host => "localhost", :port => 6379)
-    rules = redis.keys("9?????")
-    rules.each do |rule|
-      count = 0
-      offenders = redis.smembers(rule)
-      offenders.each do |offender|
-        @data[:ips][offender] ||= {}
-        @data[:ips][offender][rule] = 0
-        current = redis.get("#{rule}:#{offender}").to_i
-        @data[:ips][offender][rule] += current
-        count += current
+    @data = {}
+    offenders = redis.keys("*:repsheet").map {|o| o.split(":").first}
+    offenders.each do |offender|
+      @data[offender] = {"totals" => {}}
+      redis.smembers("#{offender}:detected").each do |rule|
+        @data[offender]["totals"][rule] = redis.get "#{offender}:#{rule}:count"
       end
-      @data[:rules][rule] = count
     end
+    @aggregate = Hash.new 0
+    @data.each {|ip,data| data["totals"].each {|rule,count| @aggregate[rule] += count.to_i}}
     erb :index
   end
 end

@@ -214,8 +214,8 @@ static void process_waf_events(redisContext *context, request_rec *r, char *waf_
       event = substr(waf_events, ovector[2*i], ovector[2*i] + (ovector[2*i+1] - ovector[2*i]));
       if (count > 0 && event != prev_event) {
         freeReplyObject(redisCommand(context, "SADD %s:detected %s", r->connection->remote_ip, event));
-        freeReplyObject(redisCommand(context, "INCR %s:%s", r->connection->remote_ip, event));
-        freeReplyObject(redisCommand(context, "SET  %s:repsheet 1", r->connection->remote_ip, 1));
+        freeReplyObject(redisCommand(context, "INCR %s:%s:count", r->connection->remote_ip, event));
+        freeReplyObject(redisCommand(context, "SET  %s:repsheet true", r->connection->remote_ip, 1));
         prev_event = event;
       }
     }
