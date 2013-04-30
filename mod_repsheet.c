@@ -230,6 +230,7 @@ static int repsheet_recorder(request_rec *r)
     return DECLINED;
   }
 
+  int offender;
   redisContext *context;
 
   context = get_redis_context(r);
@@ -238,8 +239,9 @@ static int repsheet_recorder(request_rec *r)
     return DECLINED;
   }
 
-  if (repsheet_offender(context, r)) {
-    if (config.action == BLOCK) {
+  offender = repsheet_offender(context, r);
+  if (offender) {
+    if (offender == BLOCK) {
       ap_log_error(APLOG_MARK, APLOG_ERR, 0, r->server, "%s %s was blocked by the repsheet", config.prefix, r->connection->remote_ip);
       return HTTP_FORBIDDEN;
     } else {
