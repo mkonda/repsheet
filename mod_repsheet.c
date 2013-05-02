@@ -275,7 +275,7 @@ static int repsheet_recorder(request_rec *r)
 
 static int repsheet_mod_security_filter(request_rec *r)
 {
-  if (!config.filter_enabled) {
+  if (!config.repsheet_enabled || !config.filter_enabled) {
     return DECLINED;
   }
 
