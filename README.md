@@ -20,7 +20,7 @@ Repsheet attempts to solve the problem of automated defenses against robots and 
 
 Repsheet works by inspecting requests as they come into the web server and storing that activity in Redis. It does this in two ways. 
 
-First, when a request comes in, the IP is checked to see if it is a member of the `repsheet` set. If it is, it acts on that information based on the configuration set. If `RepsheetAction` is set to `Block`, Repsheet instructs Apache to return a 403. If `RepsheetAction` is set to `Notify`, then Repsheet will log to the Apache logs that the IP was found on the repsheet but no action was taken. Repsheet will then add the header `X-Repsheet: true` to the request to make downstream applications aware that the request is from a known bad source. Next, the the following details are recorded in Redis under a list that keys off of the IP address:
+First, when a request comes in, the IP is checked to see if it has been flagged by Repsheet. If it has, it acts on that information based on the configuration set. If `RepsheetAction` is set to `Block`, Repsheet instructs Apache to return a 403. If `RepsheetAction` is set to `Notify`, then Repsheet will log to the Apache logs that the IP was found on the repsheet but no action was taken. Repsheet will then add the header `X-Repsheet: true` to the request to make downstream applications aware that the request is from a known bad source. Next, if the `RepsheetRecorder` directive is set to `On`, the the following details are recorded in Redis list using the key `<ip>:requests`
 
 * Timestamp
 * User Agent
@@ -28,17 +28,17 @@ First, when a request comes in, the IP is checked to see if it is a member of th
 * URI
 * Arguments
 
-These are recorded for every request that IP makes. This key expires after a configurable amount of time, but the expiry is reset on every request. Essentially the key will fall off once the IP has been dormant for `RepsheetRedisTTL` hours.
+These are recorded for every request the IP makes.
 
-Second, Repsheet looks at [ModSecurity](http://modsecurity.org) to see if the request triggered any rules. If that is the case, [ModSecurity](http://modsecurity.org) places details into the request headers. Repsheet reads these headers and records information about which rules were triggered and stores them in Redis in the following fashion:
+Second, if the `RepsheetFilter` directive is set to `On`, Repsheet looks at [ModSecurity](http://modsecurity.org) to see if the request triggered any rules. If so, [ModSecurity](http://modsecurity.org) places details into the request headers. Repsheet reads these headers and records information about which rules were triggered and stores them in Redis in the following fashion:
 
 ```
-sadd <ruleid> <ip>
-incr <ruleid>:<ip>
-sadd repsheet <ip>
+sadd <ruleid> <ip>:detected
+incr <ip>:<rule>:count
+set <ip>:repsheet true
 ```
 
-In other words, each IP address that triggers a rule is stored in a set that keys off of the rule id. For each IP address that triggers a rule, an integer key that keys off the combined string of `ruleid:ip` is created and incremented any time the rule is triggered by the IP address. Finally, The IP address is added to the repsheet because it triggered one or more rules.
+In other words, each IP address that triggers a ModSecurity is put on the Repsheet and each rule that has been triggered is recorded as well as how many times that rule has been triggered. Finally, The IP address is flagged as being a repsheet offender.
 
 The high level idea is captured in this drawing:
 
@@ -50,13 +50,13 @@ Repsheet provides some much needed intelligence and visualization around who is 
 
 ## What are the downsides?
 
-In short, more work. A Redis instance has to be spun up that can handle the data coming in to your site. If you get a lot of traffic, your Redis instance is going to grow. You can configure the expiry of inactive IPs as well as how many entries each IP address can have at one time to limit a single IP address from blowing up your Redis database, but you still have to account for all the IPs that come into contact and how frequently they do so. 
+In short, more work. A Redis instance has to be spun up that can handle the data coming in to your site. If you get a lot of traffic, your Redis instance is going to grow. You can configure how many requests are stored for an IP address to limit a single IP address from blowing up your Redis database, but you still have to account for all the IPs that come into contact and how frequently they do so. 
 
 Along with this, there is the potential for both [ModSecurity](http://modsecurity.org) and Repsheet to slow down your requests. The [ModSecurity](http://modsecurity.org) slow downs are mostly based on the rules you configure, but you should do some profiling to ensure that [ModSecurity](http://modsecurity.org) isn't causing to large of a delay. Since Repsheet contacts an external service during the request lifecycle in a blocking fashion, the request is slowed down for the duration of that external service call. Fortunately this is configurable in `RepsheetRedisTimeout`. You should keep this as low as possible, and the timeout value is always in milliseconds. This should be profiled as well to ensure that it doesn't cause unnecessary overhead.
 
 ## Setup
 
-This module requires [hiredis](https://github.com/redis/hiredis) and [apxs](http://httpd.apache.org/docs/2.2/programs/apxs.html) to be installed. If you want to run the integration tests or the visualizer, you will need to have [Ruby](http://www.ruby-lang.org/en/) and [RubyGems](http://rubygems.org/) installed. Both the integration tests and the visualizer use [Bundler](http://gembundler.com/), so you need to have that installed as well. The Ruby based programs have all been tested using Ruby 1.9.3.
+This module requires [hiredis](https://github.com/redis/hiredis), [apxs](http://httpd.apache.org/docs/2.2/programs/apxs.html), and [pcre](http://www.pcre.org/) to be installed. If you want to run the integration tests or the visualizer, you will need to have [Ruby](http://www.ruby-lang.org/en/) and [RubyGems](http://rubygems.org/) installed. Both the integration tests and the visualizer use [Bundler](http://gembundler.com/), so you need to have that installed as well. The Ruby based programs have all been tested using Ruby 1.9.3.
 
 If you are on OS X, you might have to run the following to make the compile tool-chain work properly with apxs:
 
@@ -75,13 +75,15 @@ sudo make install
 
 To activate and configure repsheet you will need to set some directives. The following list explains what each directive is and what is does.
 
-* `RepsheetEnabled <On|Off>` - Determines if the module will do any processing
+* `RepsheetEnabled <On|Off>` - Determines if Repsheet will do any processing
+* `RepsheetRecorder <On|Off>` - Determines if request information will be stored
+* `RepsheetFilter <On|Off>` - Determines if Repsheet will look for ModSecurity information
 * `RepsheetAction <Notify|Block>` - Determines the action to take if an IP is found on the repsheet. `Notify` will send a header downstream and `Block` will return a `403`
 * `RepsheetPrefix <prefix>` - Sets the logger prefix. This will precede any repsheet apache log lines
 * `RepsheetRedisTimeout n` - Sets the time (in milliseconds) before the attempt to connect to redis will timeout and fail
 * `RepsheetRedisHost <host>` - Sets the host for the Redis connection
 * `RepsheetRedisTimeout <port>` - Sets the port for the Redis connection
-* `RepsheetRedisTTL <ttl>` - Number of hours before an IP entry will expire. If new activity from an IP is seen before expiry the expiry time will reset
+* `RepsheetRedisTTL <ttl>` - Number of hours before an IP entry will expire. If new activity from an IP is seen before expiry the expiry time will reset (NOT IMPLEMENTED)
 * `RepsheetRedisMaxLength <ttl>` - Number of recorded requests a single IP can have before it is trimmed in Redis
 
 Here's a complete example:
@@ -89,6 +91,8 @@ Here's a complete example:
 ```
 <IfModule repsheet_module>
   RepsheetEnabled On
+  RepsheetRecorder On
+  RepsheetFilter On
   RepsheetAction Notify
   RepsheetPrefix [repsheet]
   RepsheetRedisTimeout 5
