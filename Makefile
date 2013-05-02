@@ -18,11 +18,8 @@ install_local: mod_repsheet_local
 setup:
 	script/bootstrap
 
-repsheet_cleaner:
-	gcc $(CFLAGS) repsheet_cleaner.c -o repsheet_cleaner
-
 clean:
-	rm -rf *.la *.lo *.slo *.o .libs *.dSYM repsheet_cleaner
+	rm -rf *.la *.lo *.slo *.o .libs *.dSYM backend/repsheet
 
 clobber: clean
 	rm -rf build vendor
