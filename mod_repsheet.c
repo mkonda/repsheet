@@ -31,6 +31,7 @@
 #define BLOCK 2
 
 typedef struct {
+  int repsheet_enabled;
   int recorder_enabled;
   int filter_enabled;
   int action;
@@ -43,6 +44,16 @@ typedef struct {
   int redis_max_length;
 } repsheet_config;
 static repsheet_config config;
+
+const char *repsheet_set_enabled(cmd_parms *cmd, void *cfg, const char *arg)
+{
+  if (!strcasecmp(arg, "on")) {
+    config.repsheet_enabled = 1;
+  } else {
+    config.repsheet_enabled = 0;
+  }
+  return NULL;
+}
 
 const char *repsheet_set_recorder_enabled(cmd_parms *cmd, void *cfg, const char *arg)
 {
@@ -114,8 +125,9 @@ const char *repsheet_set_action(cmd_parms *cmd, void *cfg, const char *arg)
 
 static const command_rec repsheet_directives[] =
   {
-    AP_INIT_TAKE1("repsheetRecorder",        repsheet_set_recorder_enabled,  NULL, RSRC_CONF, "Enable or disable mod_repsheet"),
-    AP_INIT_TAKE1("repsheetFilter",          repsheet_set_filter_enabled,    NULL, RSRC_CONF, "Enable or disable mod_repsheet"),
+    AP_INIT_TAKE1("repsheetEnabled",         repsheet_set_enabled,           NULL, RSRC_CONF, "Enable or disable mod_repsheet"),
+    AP_INIT_TAKE1("repsheetRecorder",        repsheet_set_recorder_enabled,  NULL, RSRC_CONF, "Enable or disable repsheet recorder"),
+    AP_INIT_TAKE1("repsheetFilter",          repsheet_set_filter_enabled,    NULL, RSRC_CONF, "Enable or disable repsheet ModSecurity filter"),
     AP_INIT_TAKE1("repsheetAction",          repsheet_set_action,            NULL, RSRC_CONF, "Set the action"),
     AP_INIT_TAKE1("repsheetPrefix",          repsheet_set_prefix,            NULL, RSRC_CONF, "Set the log prefix"),
     AP_INIT_TAKE1("repsheetRedisTimeout",    repsheet_set_timeout,           NULL, RSRC_CONF, "Set the Redis timeout"),
@@ -226,7 +238,7 @@ static void process_waf_events(redisContext *context, request_rec *r, char *waf_
 
 static int repsheet_recorder(request_rec *r)
 {
-  if (!config.recorder_enabled || !ap_is_initial_req(r)) {
+  if (!config.repsheet_enabled || !ap_is_initial_req(r)) {
     return DECLINED;
   }
 
@@ -250,7 +262,11 @@ static int repsheet_recorder(request_rec *r)
     }
   }
 
-  record(context, r); // TODO: add reply checking to record to deal with errors writing to Redis
+  if (config.recorder_enabled || !ap_is_initial_req(r)) {
+    record(context, r);
+  } else {
+    return DECLINED;
+  }
 
   redisFree(context);
 
