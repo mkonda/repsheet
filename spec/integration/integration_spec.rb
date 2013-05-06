@@ -25,6 +25,14 @@ describe "Integration Specs" do
 
       @redis.llen("127.0.0.1:requests").should == 1
     end
+
+    it "Records activity using the proper IP when behind a proxy" do
+      http = Curl.get("http://127.0.0.1:8888") do |http|
+        http.headers['X-Forwarded-For'] = '1.1.1.1'
+      end
+
+      @redis.llen("1.1.1.1:requests").should == 1
+    end
   end
 
   describe "ModSecurity Integration" do
@@ -43,6 +51,16 @@ describe "Integration Specs" do
       Curl.get "http://127.0.0.1:8888?../../"
 
       @redis.get("127.0.0.1:repsheet").should be_true
+    end
+
+    it "Adds the offending IP address to the repsheet when behind a proxy" do
+      @redis.get("1.1.1.1:repsheet").should be_false
+
+      http = Curl.get("http://127.0.0.1:8888?../../") do |http|
+        http.headers['X-Forwarded-For'] = '1.1.1.1'
+      end
+
+      @redis.get("1.1.1.1:repsheet").should be_true
     end
   end
 end

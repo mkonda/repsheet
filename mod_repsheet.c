@@ -34,6 +34,7 @@ typedef struct {
   int repsheet_enabled;
   int recorder_enabled;
   int filter_enabled;
+  int proxy_headers_enabled;
   int action;
   const char *prefix;
 
@@ -71,6 +72,16 @@ const char *repsheet_set_filter_enabled(cmd_parms *cmd, void *cfg, const char *a
     config.filter_enabled = 1;
   } else {
     config.filter_enabled = 0;
+  }
+  return NULL;
+}
+
+const char *repsheet_set_proxy_headers_enabled(cmd_parms *cmd, void *cfg, const char *arg)
+{
+  if (!strcasecmp(arg, "on")) {
+    config.proxy_headers_enabled = 1;
+  } else {
+    config.proxy_headers_enabled = 0;
   }
   return NULL;
 }
@@ -125,16 +136,17 @@ const char *repsheet_set_action(cmd_parms *cmd, void *cfg, const char *arg)
 
 static const command_rec repsheet_directives[] =
   {
-    AP_INIT_TAKE1("repsheetEnabled",         repsheet_set_enabled,           NULL, RSRC_CONF, "Enable or disable mod_repsheet"),
-    AP_INIT_TAKE1("repsheetRecorder",        repsheet_set_recorder_enabled,  NULL, RSRC_CONF, "Enable or disable repsheet recorder"),
-    AP_INIT_TAKE1("repsheetFilter",          repsheet_set_filter_enabled,    NULL, RSRC_CONF, "Enable or disable repsheet ModSecurity filter"),
-    AP_INIT_TAKE1("repsheetAction",          repsheet_set_action,            NULL, RSRC_CONF, "Set the action"),
-    AP_INIT_TAKE1("repsheetPrefix",          repsheet_set_prefix,            NULL, RSRC_CONF, "Set the log prefix"),
-    AP_INIT_TAKE1("repsheetRedisTimeout",    repsheet_set_timeout,           NULL, RSRC_CONF, "Set the Redis timeout"),
-    AP_INIT_TAKE1("repsheetRedisHost",       repsheet_set_host,              NULL, RSRC_CONF, "Set the Redis host"),
-    AP_INIT_TAKE1("repsheetRedisPort",       repsheet_set_port,              NULL, RSRC_CONF, "Set the Redis port"),
-    AP_INIT_TAKE1("repsheetRedisTTL",        repsheet_set_ttl,               NULL, RSRC_CONF, "Set the Redis Expiry for keys (in hours)"),
-    AP_INIT_TAKE1("repsheetRedisMaxLength",  repsheet_set_length,            NULL, RSRC_CONF, "Last n requests kept per IP"),
+    AP_INIT_TAKE1("repsheetEnabled",         repsheet_set_enabled,               NULL, RSRC_CONF, "Enable or disable mod_repsheet"),
+    AP_INIT_TAKE1("repsheetRecorder",        repsheet_set_recorder_enabled,      NULL, RSRC_CONF, "Enable or disable repsheet recorder"),
+    AP_INIT_TAKE1("repsheetFilter",          repsheet_set_filter_enabled,        NULL, RSRC_CONF, "Enable or disable repsheet ModSecurity filter"),
+    AP_INIT_TAKE1("repsheetProxyHeaders",    repsheet_set_proxy_headers_enabled, NULL, RSRC_CONF, "Enable or disable proxy header scanning"),
+    AP_INIT_TAKE1("repsheetAction",          repsheet_set_action,                NULL, RSRC_CONF, "Set the action"),
+    AP_INIT_TAKE1("repsheetPrefix",          repsheet_set_prefix,                NULL, RSRC_CONF, "Set the log prefix"),
+    AP_INIT_TAKE1("repsheetRedisTimeout",    repsheet_set_timeout,               NULL, RSRC_CONF, "Set the Redis timeout"),
+    AP_INIT_TAKE1("repsheetRedisHost",       repsheet_set_host,                  NULL, RSRC_CONF, "Set the Redis host"),
+    AP_INIT_TAKE1("repsheetRedisPort",       repsheet_set_port,                  NULL, RSRC_CONF, "Set the Redis port"),
+    AP_INIT_TAKE1("repsheetRedisTTL",        repsheet_set_ttl,                   NULL, RSRC_CONF, "Set the Redis Expiry for keys (in hours)"),
+    AP_INIT_TAKE1("repsheetRedisMaxLength",  repsheet_set_length,                NULL, RSRC_CONF, "Last n requests kept per IP"),
     { NULL }
   };
 
@@ -175,17 +187,35 @@ static redisContext *get_redis_context(request_rec *r)
   }
 }
 
+static char *remote_address(request_rec *r)
+{
+  // TODO: Check that the value of the X-Forwarded-For header is
+  // actually an IP address before returning it.
+  if (config.proxy_headers_enabled) {
+    char *address = (char*)apr_table_get(r->headers_in, "X-Forwarded-For");
+
+    if (address == NULL) {
+      return r->connection->remote_ip;
+    }
+
+    return address;
+  } else {
+    return r->connection->remote_ip;
+  }
+}
+
 static int repsheet_offender(redisContext *context, request_rec *r)
 {
   redisReply *reply;
+  char *ip = remote_address(r);
 
-  reply = redisCommand(context, "GET %s:repsheet:blacklist", r->connection->remote_ip);
+  reply = redisCommand(context, "GET %s:repsheet:blacklist", ip);
   if (reply->str && strcmp(reply->str, "true") == 0) {
     freeReplyObject(reply);
     return BLOCK;
   }
 
-  reply = redisCommand(context, "GET %s:repsheet", r->connection->remote_ip);
+  reply = redisCommand(context, "GET %s:repsheet", ip);
   if (reply->str && strcmp(reply->str, "true") == 0) {
     freeReplyObject(reply);
     return config.action;
@@ -200,13 +230,14 @@ static void record(redisContext *context, request_rec *r)
   apr_time_exp_t start;
   char           human_time[50];
   char           value[256]; // TODO: potential overflow here
+  char           *ip = remote_address(r);
 
   apr_time_exp_gmt(&start, r->request_time);
   sprintf(human_time, "%d/%d/%d %d:%d:%d.%d", (start.tm_mon + 1), start.tm_mday, (1900 + start.tm_year), start.tm_hour, start.tm_min, start.tm_sec, start.tm_usec);
   sprintf(value, "%s,%s,%s,%s,%s", human_time, apr_table_get(r->headers_in, "User-Agent"), r->method, r->uri, r->args);
 
-  freeReplyObject(redisCommand(context, "LPUSH %s:requests %s", r->connection->remote_ip, value));
-  freeReplyObject(redisCommand(context, "LTRIM %s:requests 0 %d", r->connection->remote_ip, (config.redis_max_length - 1)));
+  freeReplyObject(redisCommand(context, "LPUSH %s:requests %s", ip, value));
+  freeReplyObject(redisCommand(context, "LTRIM %s:requests 0 %d", ip, (config.redis_max_length - 1)));
 }
 
 static void process_waf_events(redisContext *context, request_rec *r, char *waf_events)
@@ -218,6 +249,7 @@ static void process_waf_events(redisContext *context, request_rec *r, char *waf_
   char *event, *prev_event;
   const char *error;
   pcre *re;
+  char *ip = remote_address(r);
 
   re = pcre_compile ("\\d{6}", PCRE_MULTILINE, &error, &erroffset, 0);
 
@@ -225,9 +257,9 @@ static void process_waf_events(redisContext *context, request_rec *r, char *waf_
     for (i = 0; i < rc; i++) {
       event = substr(waf_events, ovector[2*i], ovector[2*i] + (ovector[2*i+1] - ovector[2*i]));
       if (count > 0 && event != prev_event) {
-        freeReplyObject(redisCommand(context, "SADD %s:detected %s", r->connection->remote_ip, event));
-        freeReplyObject(redisCommand(context, "INCR %s:%s:count", r->connection->remote_ip, event));
-        freeReplyObject(redisCommand(context, "SET  %s:repsheet true", r->connection->remote_ip, 1));
+        freeReplyObject(redisCommand(context, "SADD %s:detected %s", ip, event));
+        freeReplyObject(redisCommand(context, "INCR %s:%s:count", ip, event));
+        freeReplyObject(redisCommand(context, "SET  %s:repsheet true", ip, 1));
         prev_event = event;
       }
     }
@@ -251,13 +283,15 @@ static int repsheet_recorder(request_rec *r)
     return DECLINED;
   }
 
+  char *ip = remote_address(r);
+
   offender = repsheet_offender(context, r);
   if (offender) {
     if (offender == BLOCK) {
-      ap_log_error(APLOG_MARK, APLOG_ERR, 0, r->server, "%s %s was blocked by the repsheet", config.prefix, r->connection->remote_ip);
+      ap_log_error(APLOG_MARK, APLOG_ERR, 0, r->server, "%s %s was blocked by the repsheet", config.prefix, ip);
       return HTTP_FORBIDDEN;
     } else {
-      ap_log_error(APLOG_MARK, APLOG_ERR, 0, r->server, "%s IP Address %s was found on the repsheet. No action taken", config.prefix, r->connection->remote_ip);
+      ap_log_error(APLOG_MARK, APLOG_ERR, 0, r->server, "%s IP Address %s was found on the repsheet. No action taken", config.prefix, ip);
       apr_table_set(r->headers_in, "X-Repsheet", "true");
     }
   }

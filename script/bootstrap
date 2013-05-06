@@ -65,8 +65,10 @@ LoadModule security2_module modules/mod_security2.so
 </IfModule>
 
 <IfModule repsheet_module>
+  RepsheetEnabled On
   RepsheetRecorder On
   RepsheetFilter On
+  RepsheetProxyHeaders On
   RepsheetAction Notify
   RepsheetPrefix [repsheet]
   RepsheetRedisTimeout 5
