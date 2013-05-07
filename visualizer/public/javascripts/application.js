@@ -1,3 +1,7 @@
+$(document).ready(function() {
+    $("#actors").tablesorter({sortList: [[2,1], [1,1]],widgets: ['zebra']});
+});
+
 function angle(d) {
   var a = (d.startAngle + d.endAngle) * 90 / Math.PI - 90;
   return a > 90 ? a - 180 : a;
