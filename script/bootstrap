@@ -68,6 +68,7 @@ LoadModule security2_module modules/mod_security2.so
   RepsheetEnabled On
   RepsheetRecorder On
   RepsheetFilter On
+  RepsheetGeoIP On
   RepsheetProxyHeaders On
   RepsheetAction Notify
   RepsheetPrefix [repsheet]

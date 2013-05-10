@@ -35,6 +35,7 @@ typedef struct {
   int recorder_enabled;
   int filter_enabled;
   int proxy_headers_enabled;
+  int geoip_enabled;
   int action;
   const char *prefix;
 
@@ -72,6 +73,16 @@ const char *repsheet_set_filter_enabled(cmd_parms *cmd, void *cfg, const char *a
     config.filter_enabled = 1;
   } else {
     config.filter_enabled = 0;
+  }
+  return NULL;
+}
+
+const char *repsheet_set_geoip_enabled(cmd_parms *cmd, void *cfg, const char *arg)
+{
+  if (!strcasecmp(arg, "on")) {
+    config.geoip_enabled = 1;
+  } else {
+    config.geoip_enabled = 0;
   }
   return NULL;
 }
@@ -139,6 +150,7 @@ static const command_rec repsheet_directives[] =
     AP_INIT_TAKE1("repsheetEnabled",         repsheet_set_enabled,               NULL, RSRC_CONF, "Enable or disable mod_repsheet"),
     AP_INIT_TAKE1("repsheetRecorder",        repsheet_set_recorder_enabled,      NULL, RSRC_CONF, "Enable or disable repsheet recorder"),
     AP_INIT_TAKE1("repsheetFilter",          repsheet_set_filter_enabled,        NULL, RSRC_CONF, "Enable or disable repsheet ModSecurity filter"),
+    AP_INIT_TAKE1("repsheetGeoIP",           repsheet_set_geoip_enabled,         NULL, RSRC_CONF, "Enable or disable repsheet GeoIP filter"),
     AP_INIT_TAKE1("repsheetProxyHeaders",    repsheet_set_proxy_headers_enabled, NULL, RSRC_CONF, "Enable or disable proxy header scanning"),
     AP_INIT_TAKE1("repsheetAction",          repsheet_set_action,                NULL, RSRC_CONF, "Set the action"),
     AP_INIT_TAKE1("repsheetPrefix",          repsheet_set_prefix,                NULL, RSRC_CONF, "Set the log prefix"),
@@ -217,6 +229,24 @@ static int repsheet_offender(redisContext *context, request_rec *r)
 
   reply = redisCommand(context, "GET %s:repsheet", ip);
   if (reply->str && strcmp(reply->str, "true") == 0) {
+    freeReplyObject(reply);
+    return config.action;
+  }
+
+  freeReplyObject(reply);
+  return 0;
+}
+
+static int geoip_offender(redisContext *context, request_rec *r, const char *country)
+{
+  if (country == NULL) {
+    return 0;
+  }
+
+  redisReply *reply;
+
+  reply = redisCommand(context, "SISMEMBER repsheet:countries %s", country);
+  if (reply && reply->integer == 1) {
     freeReplyObject(reply);
     return config.action;
   }
@@ -334,9 +364,44 @@ static int repsheet_mod_security_filter(request_rec *r)
   return DECLINED;
 }
 
+static int repsheet_geoip_filter(request_rec *r)
+{
+  if (!config.repsheet_enabled || !config.geoip_enabled) {
+    return DECLINED;
+  }
+
+  int action;
+  const char* country = apr_table_get(r->headers_in, "GEOIP_COUNTRY_CODE");
+  redisContext *context;
+  char *ip = remote_address(r);
+
+  context = get_redis_context(r);
+
+  if (context == NULL) {
+    return DECLINED;
+  }
+
+  action = geoip_offender(context, r, country);
+  if (action) {
+    if (action == BLOCK) {
+      ap_log_error(APLOG_MARK, APLOG_ERR, 0, r->server, "%s %s was blocked by the repsheet", config.prefix, ip);
+      return HTTP_FORBIDDEN;
+    } else {
+      ap_log_error(APLOG_MARK, APLOG_ERR, 0, r->server, "%s IP Address %s was on the geoip suspicious country list. No action taken", config.prefix, ip);
+      apr_table_set(r->headers_in, "X-Repsheet", "true");
+    }
+
+    freeReplyObject(redisCommand(context, "SET  %s:repsheet true", ip, 1));
+  }
+
+  redisFree(context);
+  return DECLINED;
+}
+
 static void register_hooks(apr_pool_t *pool)
 {
   ap_hook_post_read_request(repsheet_recorder, NULL, NULL, APR_HOOK_LAST);
+  ap_hook_post_read_request(repsheet_geoip_filter, NULL, NULL, APR_HOOK_LAST);
   ap_hook_fixups(repsheet_mod_security_filter, NULL, NULL, APR_HOOK_REALLY_LAST);
 }
 

@@ -78,6 +78,7 @@ To activate and configure repsheet you will need to set some directives. The fol
 * `RepsheetEnabled <On|Off>` - Determines if Repsheet will do any processing
 * `RepsheetRecorder <On|Off>` - Determines if request information will be stored
 * `RepsheetFilter <On|Off>` - Determines if Repsheet will look for ModSecurity information
+* `RepsheetGeoIP <On|Off>` - Determines if Repsheet will look at GeoIP information
 * `RepsheetProxyHeaders <On|Off>` - Determines if Repsheet will look for the X-Forwarded-For header to determine remote ip
 * `RepsheetAction <Notify|Block>` - Determines the action to take if an IP is found on the repsheet. `Notify` will send a header downstream and `Block` will return a `403`
 * `RepsheetPrefix <prefix>` - Sets the logger prefix. This will precede any repsheet apache log lines
@@ -94,6 +95,7 @@ Here's a complete example:
   RepsheetEnabled On
   RepsheetRecorder On
   RepsheetFilter On
+  RepsheetGeoIP On
   RepsheetProxyHeaders On
   RepsheetAction Notify
   RepsheetPrefix [repsheet]
