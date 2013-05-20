@@ -2,6 +2,7 @@ language: c
 before_install:
   - sudo apt-get update -qq
   - sudo apt-get install -qq build-essential apache2-prefork-dev libhiredis-dev libhiredis0.10 libgeoip-dev apache2
+  - sudo ln -sf /usr/bin/apxs2 /usr/local/bin/apxs
 script: make && sudo make install && bundle install && rake
 compiler:
   - clang
