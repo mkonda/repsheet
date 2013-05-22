@@ -26,7 +26,7 @@
 
 #include "hiredis/hiredis.h"
 
-#define UNDEFINED 0
+#define ALLOW 0
 #define NOTIFY 1
 #define BLOCK 2
 
@@ -140,7 +140,7 @@ const char *repsheet_set_action(cmd_parms *cmd, void *cfg, const char *arg)
   } else if (strcmp(arg, "Block") == 0) {
     config.action = BLOCK;
   } else {
-    config.action = UNDEFINED;
+    config.action = ALLOW;
   }
   return NULL;
 }
@@ -224,7 +224,7 @@ static int repsheet_offender(redisContext *context, request_rec *r)
   reply = redisCommand(context, "GET %s:repsheet:whitelist", ip);
   if (reply->str && strcmp(reply->str, "true") == 0) {
     freeReplyObject(reply);
-    return 0;
+    return ALLOW;
   }
 
   reply = redisCommand(context, "GET %s:repsheet:blacklist", ip);
@@ -240,13 +240,13 @@ static int repsheet_offender(redisContext *context, request_rec *r)
   }
 
   freeReplyObject(reply);
-  return 0;
+  return ALLOW;
 }
 
 static int geoip_offender(redisContext *context, request_rec *r, const char *country)
 {
   if (country == NULL) {
-    return 0;
+    return ALLOW;
   }
 
   redisReply *reply;
@@ -258,7 +258,7 @@ static int geoip_offender(redisContext *context, request_rec *r, const char *cou
   }
 
   freeReplyObject(reply);
-  return 0;
+  return ALLOW;
 }
 
 static void record(redisContext *context, request_rec *r)
