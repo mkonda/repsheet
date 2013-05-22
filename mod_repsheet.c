@@ -42,7 +42,6 @@ typedef struct {
   const char *redis_host;
   int redis_port;
   int redis_timeout;
-  int redis_ttl;
   int redis_max_length;
 } repsheet_config;
 static repsheet_config config;
@@ -115,12 +114,6 @@ const char *repsheet_set_port(cmd_parms *cmd, void *cfg, const char *arg)
   return NULL;
 }
 
-const char *repsheet_set_ttl(cmd_parms *cmd, void *cfg, const char *arg)
-{
-  config.redis_ttl = atoi(arg) * 60 * 60;
-  return NULL;
-}
-
 const char *repsheet_set_length(cmd_parms *cmd, void *cfg, const char *arg)
 {
   config.redis_max_length = atoi(arg);
@@ -157,7 +150,6 @@ static const command_rec repsheet_directives[] =
     AP_INIT_TAKE1("repsheetRedisTimeout",    repsheet_set_timeout,               NULL, RSRC_CONF, "Set the Redis timeout"),
     AP_INIT_TAKE1("repsheetRedisHost",       repsheet_set_host,                  NULL, RSRC_CONF, "Set the Redis host"),
     AP_INIT_TAKE1("repsheetRedisPort",       repsheet_set_port,                  NULL, RSRC_CONF, "Set the Redis port"),
-    AP_INIT_TAKE1("repsheetRedisTTL",        repsheet_set_ttl,                   NULL, RSRC_CONF, "Set the Redis Expiry for keys (in hours)"),
     AP_INIT_TAKE1("repsheetRedisMaxLength",  repsheet_set_length,                NULL, RSRC_CONF, "Last n requests kept per IP"),
     { NULL }
   };
