@@ -3,10 +3,8 @@
 *.o
 *.slo
 *.lo
-hiredis
-hiredis_test.c
+*.dSYM
 build
 vendor
 dump.rdb
-repsheet_cleaner
-*.dSYM
+

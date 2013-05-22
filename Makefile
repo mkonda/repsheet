@@ -19,7 +19,7 @@ setup:
 	script/bootstrap
 
 clean:
-	rm -rf *.la *.lo *.slo *.o .libs *.dSYM backend/repsheet
+	rm -rf *.la *.lo *.slo *.o .libs *.dSYM
 
 clobber: clean
 	rm -rf build vendor

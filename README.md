@@ -56,7 +56,7 @@ Along with this, there is the potential for both [ModSecurity](http://modsecurit
 
 ## Setup
 
-This module requires [hiredis](https://github.com/redis/hiredis), [apxs](http://httpd.apache.org/docs/2.2/programs/apxs.html), and [pcre](http://www.pcre.org/) to be installed. If you want to run the integration tests or the visualizer, you will need to have [Ruby](http://www.ruby-lang.org/en/) and [RubyGems](http://rubygems.org/) installed. Both the integration tests and the visualizer use [Bundler](http://gembundler.com/), so you need to have that installed as well. The Ruby based programs have all been tested using Ruby 1.9.3.
+This module requires [hiredis](https://github.com/redis/hiredis), [apxs](http://httpd.apache.org/docs/2.2/programs/apxs.html), and [pcre](http://www.pcre.org/), and optionally [geoip](http://www.maxmind.com/en/geolocation_landing) (if you want GeoIP support) to be installed. If you want to run the integration tests, you will need to have [Ruby](http://www.ruby-lang.org/en/) and [RubyGems](http://rubygems.org/) installed. The integration tests use [Bundler](http://gembundler.com/), so you need to have that installed as well. The Ruby based programs have all been tested using Ruby 1.9.3.
 
 If you are on OS X, you might have to run the following to make the compile tool-chain work properly with apxs:
 
@@ -66,7 +66,7 @@ ln -s /Applications/Xcode.app/Contents/Developer/Toolchains/XcodeDefault.xctoolc
 
 #### Installation
 
-Compilation is done via `apxs`. This is one of the simpler ways to deal with compilation/installation/activation of a module. If you need to install manually, you can simply run `make`, copy the files to the right location, and add the configuration in your `httpd.conf`
+Compilation is done via `apxs`. This is one of the simpler ways to deal with compilation/installation/activation of a module. The process is wrapped in a Makefile though to ease the process
 
 ```
 make
@@ -109,22 +109,14 @@ Here's a complete example:
 
 In order to take full advantage of Repsheet, you need to have the proper ModSecurity rules setup. This repository packages a working set of rules as an example. They are the  [OWASP Core Rules](https://github.com/SpiderLabs/owasp-modsecurity-crs) base rules plus the optional rule set that perfoms header tagging. You can and should tune these rules so that they work properly for your enviornment, but remember to have the header tagging rules in place or Repsheet will not be able to see what ModSecurity has alerted on.
 
-##### Cleanup
-
-To ensure that stale IPs are cleaned up from the repsheet, you will need to run the Repsheet cleaner. It is recommended to run this on a schedule via cron. A binary named repsheet_cleaner is installed to `/usr/bin` during the install process. For example, if you want to run the cleaner every 5 minutes, you would create an entry in cron like so:
-
-```
-*/5 * * * * /usr/bin/repsheet_cleaner
-```
-
 ## Running the Integration Tests
 
 Repsheet comes with a basic set of integration tests to ensure that things are working. In order to run these, run the following
 
 ```sh
-bundle install
 make install_local
+bundle install
 rake
 ```
 
-The `make install_local` task will take some time. It downloads and compiles Apache and ModSecurity, and then compiles and installs Repsheet and configures everything to work together. Running `rake` launches some web-driver based tests that hit the site and trigger ModSecurity rules, then test that everything was recorded properly in Redis.
+The `make install_local` task will take some time. It downloads and compiles Apache and ModSecurity, and then compiles and installs Repsheet and configures everything to work together. Running `rake` launches some curl based tests that hit the site and exercise Repsheet, then test that everything was recorded properly in Redis.
