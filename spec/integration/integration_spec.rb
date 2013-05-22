@@ -81,4 +81,14 @@ describe "Integration Specs" do
       @redis.get("1.1.1.1:repsheet").should be_true
     end
   end
+
+  describe "GeoIP Blacklisting" do
+    it "Adds the actor to the repsheet if the actor's origin country is on the suspicious countries list" do
+      @redis.sadd("repsheet:countries", "US")
+      http = Curl.get("http://127.0.0.1:8888?../../") do |http|
+        http.headers['X-Forwarded-For'] = '8.8.8.8'
+      end
+      @redis.get("8.8.8.8:repsheet").should be_true
+    end
+  end
 end
