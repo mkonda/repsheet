@@ -221,6 +221,12 @@ static int repsheet_offender(redisContext *context, request_rec *r)
   redisReply *reply;
   char *ip = remote_address(r);
 
+  reply = redisCommand(context, "GET %s:repsheet:whitelist", ip);
+  if (reply->str && strcmp(reply->str, "true") == 0) {
+    freeReplyObject(reply);
+    return 0;
+  }
+
   reply = redisCommand(context, "GET %s:repsheet:blacklist", ip);
   if (reply->str && strcmp(reply->str, "true") == 0) {
     freeReplyObject(reply);

@@ -19,6 +19,24 @@ describe "Integration Specs" do
     end
   end
 
+  describe "Actions" do
+    it "Returns a 403 response if the actor is on the blacklist" do
+      @redis.set("127.0.0.1:repsheet:blacklist", "true")
+      Curl.get("http://127.0.0.1:8888").response_code.should == 403
+    end
+
+    it "Returns a 200 response if the actor is on the whitelist" do
+      @redis.set("127.0.0.1:repsheet:blacklist", "true")
+      @redis.set("127.0.0.1:repsheet:whitelist", "true")
+      Curl.get("http://127.0.0.1:8888").response_code.should == 200
+    end
+
+    it "Returns a 200 response if the actor is on the repsheet but Notify is the default action" do
+      @redis.set("127.0.0.1:repsheet", "true")
+      Curl.get("http://127.0.0.1:8888").response_code.should == 200
+    end
+  end
+
   describe "Recorder" do
     it "Records the IP, User Agent, Method, URI, and Arguments during a request" do
       Curl.get "http://127.0.0.1:8888"
