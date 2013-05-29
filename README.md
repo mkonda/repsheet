@@ -1,4 +1,4 @@
-# Repsheet
+# Repsheet [![Build Status](https://secure.travis-ci.org/abedra/repsheet.png)](http://travis-ci.org/abedra/repsheet?branch=master)
 
 > 
 > **noun**  *Slang.*  
