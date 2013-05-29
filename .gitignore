@@ -8,3 +8,5 @@ build
 vendor
 dump.rdb
 
+cov-int
+repsheet.tar.gz
