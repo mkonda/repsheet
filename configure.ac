@@ -7,6 +7,7 @@ AC_CONFIG_MACRO_DIR([m4])
 m4_ifdef([AM_PROG_AR], [AM_PROG_AR])
 
 AC_PROG_CC
+AM_PROG_CC_C_O
 AC_PROG_LIBTOOL
 
 AC_CHECK_LIB([apr-1], [apr_pool_pre_cleanup_register], [], [AC_MSG_ERROR([apr_pool_pre_cleanup_register was not found in libapr-1])])
@@ -29,9 +30,12 @@ AC_CHECK_FILE([/usr/local/apache2/bin/apxs], [APXS="/usr/local/apache2/bin/apxs"
 ])
 AC_SUBST([APXS])
 
+PKG_CHECK_MODULES([CHECK], [check >= 0.9.4])
+
 AC_CONFIG_FILES([
     Makefile
     src/Makefile
+    test/Makefile
 ])
 
 AC_OUTPUT

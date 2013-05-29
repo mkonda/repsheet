@@ -34,3 +34,14 @@ src/mod_repsheet.l*
 src/.deps
 Makefile
 autom4te.cache
+compile
+config.h.in~
+test-driver
+test/Makefile
+test/Makefile.in
+test/.deps
+test/test-suite.log
+test/test_runner
+test/*.o
+test/*.trs
+test/test_runner.log
