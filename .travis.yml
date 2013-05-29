@@ -1,7 +1,7 @@
 language: c
 before_install:
   - sudo apt-get update -qq
-  - sudo apt-get install -qq build-essential apache2-prefork-dev libhiredis-dev libhiredis0.10 libgeoip-dev apache2
+  - sudo apt-get install -qq build-essential apache2-prefork-dev libhiredis-dev libhiredis0.10 libgeoip-dev apache2 check
 script: ./autogen.sh && ./configure && make && make check
 compiler:
   - clang
