@@ -10,3 +10,27 @@ dump.rdb
 
 cov-int
 repsheet.tar.gz
+Makefile.in
+aclocal.m4
+ar-lib
+config.guess
+config.h
+config.h.in
+config.log
+config.status
+config.sub
+configure
+depcomp
+install-sh
+libtool
+ltmain.sh
+m4
+missing
+stamp-h1
+src/Makefile
+src/Makefile.in
+src/*.o
+src/mod_repsheet.l*
+src/.deps
+Makefile
+autom4te.cache

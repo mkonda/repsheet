@@ -274,7 +274,7 @@ static void process_waf_events(redisContext *context, request_rec *r, char *waf_
   int ovector[100];
   unsigned int offset = 0;
   unsigned int len = strlen(waf_events);
-  char *event, *prev_event;
+  char *event, *prev_event = NULL;
   const char *error;
   pcre *re;
   char *ip = remote_address(r);
