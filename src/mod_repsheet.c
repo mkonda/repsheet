@@ -26,6 +26,8 @@
 
 #include "hiredis/hiredis.h"
 
+#include "proxy.h"
+
 #define ALLOW 0
 #define NOTIFY 1
 #define BLOCK 2
@@ -193,10 +195,8 @@ static redisContext *get_redis_context(request_rec *r)
 
 static char *remote_address(request_rec *r)
 {
-  // TODO: Check that the value of the X-Forwarded-For header is
-  // actually an IP address before returning it.
   if (config.proxy_headers_enabled) {
-    char *address = (char*)apr_table_get(r->headers_in, "X-Forwarded-For");
+    char *address = process_headers((char*)apr_table_get(r->headers_in, "X-Forwarded-For"));
 
     if (address == NULL) {
       return r->connection->remote_ip;
