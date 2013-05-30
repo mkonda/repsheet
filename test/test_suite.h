@@ -3,6 +3,6 @@
 
 #include <check.h>
 
-Suite *make_sample_suite();
+Suite *make_proxy_suite();
 
 #endif
