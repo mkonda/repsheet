@@ -15,8 +15,6 @@
 */
 
 #include <stdio.h>
-#include <pcre.h>
-#include <assert.h>
 
 #include "http_core.h"
 #include "http_protocol.h"
@@ -27,6 +25,7 @@
 #include "hiredis/hiredis.h"
 
 #include "proxy.h"
+#include "mod_security.h"
 
 #define ALLOW 0
 #define NOTIFY 1
@@ -156,24 +155,6 @@ static const command_rec repsheet_directives[] =
     { NULL }
   };
 
-static char *substr(char *string, int start, int end)
-{
-  char *ret = malloc(strlen(string) + 1);
-  char *p = ret;
-  char *q = &string[start];
-
-  assert(ret != NULL);
-
-  while(start < end) {
-    *p++ = *q++;
-    start++;
-  }
-
-  *p++ = '\0';
-
-  return ret;
-}
-
 static redisContext *get_redis_context(request_rec *r)
 {
   redisContext *context;
@@ -270,29 +251,24 @@ static void record(redisContext *context, request_rec *r)
 
 static void process_waf_events(redisContext *context, request_rec *r, char *waf_events)
 {
-  int erroffset, i , rc, count = 0;
-  int ovector[100];
-  unsigned int offset = 0;
-  unsigned int len = strlen(waf_events);
-  char *event, *prev_event = NULL;
-  const char *error;
-  pcre *re;
+  int i, m;
+  char **events;
+
+  m = matches(waf_events);
+
+  events = malloc(m * sizeof(char*));
+  for(i = 0; i < m; i++) {
+    events[i] = malloc(i * sizeof(char));
+  }
+
+  process_mod_security_headers(waf_events, events);
+
   char *ip = remote_address(r);
 
-  re = pcre_compile ("\\d{6}", PCRE_MULTILINE, &error, &erroffset, 0);
-
-  while (offset < len && (rc = pcre_exec(re, 0, waf_events, len, offset, 0, ovector, sizeof(ovector))) >= 0) {
-    for (i = 0; i < rc; i++) {
-      event = substr(waf_events, ovector[2*i], ovector[2*i] + (ovector[2*i+1] - ovector[2*i]));
-      if (count > 0 && event != prev_event) {
-        freeReplyObject(redisCommand(context, "SADD %s:detected %s", ip, event));
-        freeReplyObject(redisCommand(context, "INCR %s:%s:count", ip, event));
-        freeReplyObject(redisCommand(context, "SET  %s:repsheet true", ip, 1));
-        prev_event = event;
-      }
-    }
-    count++;
-    offset = ovector[1];
+  for(i = 0; i < m; i++) {
+    freeReplyObject(redisCommand(context, "SADD %s:detected %s", ip, events[i]));
+    freeReplyObject(redisCommand(context, "INCR %s:%s:count", ip, events[i]));
+    freeReplyObject(redisCommand(context, "SET  %s:repsheet true", ip));
   }
 }
 

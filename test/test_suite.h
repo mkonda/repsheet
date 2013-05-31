@@ -4,5 +4,6 @@
 #include <check.h>
 
 Suite *make_proxy_suite();
+Suite *make_mod_security_suite();
 
 #endif
