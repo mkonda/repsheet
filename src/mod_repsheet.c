@@ -256,19 +256,21 @@ static void process_waf_events(redisContext *context, request_rec *r, char *waf_
 
   m = matches(waf_events);
 
-  events = malloc(m * sizeof(char*));
-  for(i = 0; i < m; i++) {
-    events[i] = malloc(i * sizeof(char));
-  }
+  if (matches > 0) {
+    events = malloc(m * sizeof(char*));
+    for(i = 0; i < m; i++) {
+      events[i] = malloc(i * sizeof(char));
+    }
 
-  process_mod_security_headers(waf_events, events);
+    process_mod_security_headers(waf_events, events);
 
-  char *ip = remote_address(r);
+    char *ip = remote_address(r);
 
-  for(i = 0; i < m; i++) {
-    freeReplyObject(redisCommand(context, "SADD %s:detected %s", ip, events[i]));
-    freeReplyObject(redisCommand(context, "INCR %s:%s:count", ip, events[i]));
-    freeReplyObject(redisCommand(context, "SET  %s:repsheet true", ip));
+    for(i = 0; i < m; i++) {
+      freeReplyObject(redisCommand(context, "SADD %s:detected %s", ip, events[i]));
+      freeReplyObject(redisCommand(context, "INCR %s:%s:count", ip, events[i]));
+      freeReplyObject(redisCommand(context, "SET  %s:repsheet true", ip));
+    }
   }
 }
 

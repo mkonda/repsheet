@@ -22,10 +22,6 @@ int matches(char *waf_events)
 
 void process_mod_security_headers(char *waf_events, char *events[])
 {
-  if (waf_events == NULL) {
-    return NULL;
-  }
-
   int i = 0;
   int matches = 0;
   int offset = 0;
@@ -47,7 +43,7 @@ void process_mod_security_headers(char *waf_events, char *events[])
       pcre_get_substring(waf_events, ovector, match, i, &(event));
       if (event != prev_event) {
         strcpy(events[count], event);
-        prev_event = event;
+        prev_event = (char*)event;
       }
     }
     count++;
