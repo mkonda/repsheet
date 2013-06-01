@@ -281,9 +281,7 @@ static int repsheet_recorder(request_rec *r)
   }
 
   int offender;
-  redisContext *context;
-
-  context = get_redis_context(r);
+  redisContext *context = get_redis_context(r);;
 
   if (context == NULL) {
     return DECLINED;
@@ -304,8 +302,6 @@ static int repsheet_recorder(request_rec *r)
 
   if (config.recorder_enabled || !ap_is_initial_req(r)) {
     record(context, r);
-  } else {
-    return DECLINED;
   }
 
   redisFree(context);
@@ -325,9 +321,7 @@ static int repsheet_mod_security_filter(request_rec *r)
     return DECLINED;
   }
 
-  redisContext *context;
-
-  context = get_redis_context(r);
+  redisContext *context = get_redis_context(r);
 
   if (context == NULL) {
     return DECLINED;
@@ -346,16 +340,20 @@ static int repsheet_geoip_filter(request_rec *r)
     return DECLINED;
   }
 
-  int action;
   const char* country = apr_table_get(r->headers_in, "GEOIP_COUNTRY_CODE");
-  redisContext *context;
-  char *ip = remote_address(r);
 
-  context = get_redis_context(r);
+  if (country == NULL) {
+    return DECLINED;
+  }
+
+  redisContext *context = get_redis_context(r);;
 
   if (context == NULL) {
     return DECLINED;
   }
+
+  int action;
+  char *ip = remote_address(r);
 
   action = geoip_offender(context, r, country);
   if (action) {
