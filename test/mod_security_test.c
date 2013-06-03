@@ -16,7 +16,7 @@ START_TEST(handles_a_single_event)
 
   process_mod_security_headers(waf_events, events);
 
-  fail_unless(strcmp(events[0], "999935") == 0);
+  ck_assert_str_eq(events[0], "999935");
 }
 END_TEST
 

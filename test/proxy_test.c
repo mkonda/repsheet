@@ -8,21 +8,21 @@ START_TEST(returns_null_when_headers_are_null)
 END_TEST
 
 START_TEST(processes_a_single_address) {
-  fail_unless(strcmp("192.168.1.100", process_headers("192.168.1.100")) == 0);
+  ck_assert_str_eq(process_headers("192.168.1.100"), "192.168.1.100");
 }
 END_TEST
 
 START_TEST(extract_only_the_first_ip_address)
 {
-  fail_unless(strcmp("8.8.8.8", process_headers("8.8.8.8 12.34.56.78, 212.23.230.15")) == 0);
+  ck_assert_str_eq(process_headers("8.8.8.8 12.34.56.78, 212.23.230.15"), "8.8.8.8");
 }
 END_TEST
 
 START_TEST(ignores_user_generated_noise)
 {
-  fail_unless(strcmp("8.8.8.8", process_headers("\\x5000 8.8.8.8, 12.23.45.67")) == 0);
-  fail_unless(strcmp("8.8.8.8", process_headers("This is not an IP address 8.8.8.8, 12.23.45.67")) == 0);
-  fail_unless(strcmp("8.8.8.8", process_headers("999.999.999.999, 8.8.8.8, 12.23.45.67")) == 0);
+  ck_assert_str_eq(process_headers("\\x5000 8.8.8.8, 12.23.45.67"), "8.8.8.8");
+  ck_assert_str_eq(process_headers("This is not an IP address 8.8.8.8, 12.23.45.67"), "8.8.8.8");
+  ck_assert_str_eq(process_headers("999.999.999.999, 8.8.8.8, 12.23.45.67"), "8.8.8.8");
 }
 END_TEST
 
