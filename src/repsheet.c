@@ -45,7 +45,7 @@ int repsheet_geoip_lookup(redisContext *context, const char *country)
   return ALLOW;
 }
 
-void repsheet_record(redisContext *context, char *timestamp, const char *user_agent, char *http_method, char *uri, char *arguments, char *ip, int max_length)
+void repsheet_record(redisContext *context, char *timestamp, const char *user_agent, const char *http_method, char *uri, char *arguments, char *ip, int max_length)
 {
   char *t, *ua, *method, *u, *args, *rec;
 

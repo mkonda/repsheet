@@ -11,6 +11,6 @@
 
 int repsheet_ip_lookup(redisContext *context, char *ip);
 int repsheet_geoip_lookup(redisContext *context, const char *country);
-void repsheet_record(redisContext *context, char *timestamp, const char *user_agent, char *http_method, char* uri, char *arguments, char *ip, int max_length);
+void repsheet_record(redisContext *context, char *timestamp, const char *user_agent, const char *http_method, char* uri, char *arguments, char *ip, int max_length);
 
 #endif

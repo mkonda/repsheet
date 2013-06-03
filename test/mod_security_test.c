@@ -1,4 +1,4 @@
-#include <stdio.h>
+#include <stdlib.h>
 #include "../src/mod_security.h"
 #include "test_suite.h"
 
