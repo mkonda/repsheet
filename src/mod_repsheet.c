@@ -205,19 +205,21 @@ static void process_waf_events(redisContext *context, request_rec *r, char *waf_
 
   m = matches(waf_events);
 
-  events = malloc(m * sizeof(char*));
-  for(i = 0; i < m; i++) {
-    events[i] = malloc(i * sizeof(char));
-  }
+  if (matches > 0) {
+    events = malloc(m * sizeof(char*));
+    for(i = 0; i < m; i++) {
+      events[i] = malloc(i * sizeof(char));
+    }
 
-  process_mod_security_headers(waf_events, events);
+    process_mod_security_headers(waf_events, events);
 
-  char *ip = remote_address(r);
+    char *ip = remote_address(r);
 
-  for(i = 0; i < m; i++) {
-    freeReplyObject(redisCommand(context, "SADD %s:detected %s", ip, events[i]));
-    freeReplyObject(redisCommand(context, "INCR %s:%s:count", ip, events[i]));
-    freeReplyObject(redisCommand(context, "SET  %s:repsheet true", ip));
+    for(i = 0; i < m; i++) {
+      freeReplyObject(redisCommand(context, "SADD %s:detected %s", ip, events[i]));
+      freeReplyObject(redisCommand(context, "INCR %s:%s:count", ip, events[i]));
+      freeReplyObject(redisCommand(context, "SET  %s:repsheet true", ip));
+    }
   }
 }
 
@@ -256,36 +258,7 @@ static int repsheet_recorder(request_rec *r)
 
   if (config.recorder_enabled || !ap_is_initial_req(r)) {
     record(context, r);
-  } else {
-    return DECLINED;
   }
-
-  redisFree(context);
-
-  return DECLINED;
-}
-
-static int repsheet_mod_security_filter(request_rec *r)
-{
-  if (!config.repsheet_enabled || !config.filter_enabled) {
-    return DECLINED;
-  }
-
-  char *waf_events = (char *)apr_table_get(r->headers_in, "X-WAF-Events");
-
-  if (!waf_events) {
-    return DECLINED;
-  }
-
-  redisContext *context;
-
-  context = get_redis_context(r);
-
-  if (context == NULL) {
-    return DECLINED;
-  }
-
-  process_waf_events(context, r, waf_events);
 
   redisFree(context);
 
@@ -298,18 +271,23 @@ static int repsheet_geoip_filter(request_rec *r)
     return DECLINED;
   }
 
-  int action;
   const char* country = apr_table_get(r->headers_in, "GEOIP_COUNTRY_CODE");
-  redisContext *context;
-  char *ip = remote_address(r);
 
-  context = get_redis_context(r);
+  if (country == NULL) {
+    return DECLINED;
+  }
+
+  redisContext *context = get_redis_context(r);;
 
   if (context == NULL) {
     return DECLINED;
   }
 
+  int action;
+  char *ip = remote_address(r);
+
   action = repsheet_geoip_lookup(context, country);
+
   if (action) {
     if (action == BLOCK) {
       ap_log_error(APLOG_MARK, APLOG_ERR, 0, r->server, "%s %s was blocked by the repsheet", config.prefix, ip);
@@ -328,6 +306,31 @@ static int repsheet_geoip_filter(request_rec *r)
   }
 
   redisFree(context);
+  return DECLINED;
+}
+
+static int repsheet_mod_security_filter(request_rec *r)
+{
+  if (!config.repsheet_enabled || !config.filter_enabled) {
+    return DECLINED;
+  }
+
+  char *waf_events = (char *)apr_table_get(r->headers_in, "X-WAF-Events");
+
+  if (!waf_events) {
+    return DECLINED;
+  }
+
+  redisContext *context = get_redis_context(r);
+
+  if (context == NULL) {
+    return DECLINED;
+  }
+
+  process_waf_events(context, r, waf_events);
+
+  redisFree(context);
+
   return DECLINED;
 }
 
