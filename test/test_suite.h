@@ -5,5 +5,6 @@
 
 Suite *make_proxy_suite();
 Suite *make_mod_security_suite();
+Suite *make_repsheet_suite();
 
 #endif

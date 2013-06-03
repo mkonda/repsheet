@@ -26,10 +26,7 @@
 
 #include "proxy.h"
 #include "mod_security.h"
-
-#define ALLOW 0
-#define NOTIFY 1
-#define BLOCK 2
+#include "repsheet.h"
 
 typedef struct {
   int repsheet_enabled;
@@ -189,64 +186,16 @@ static char *remote_address(request_rec *r)
   }
 }
 
-static int repsheet_offender(redisContext *context, request_rec *r)
-{
-  redisReply *reply;
-  char *ip = remote_address(r);
-
-  reply = redisCommand(context, "GET %s:repsheet:whitelist", ip);
-  if (reply->str && strcmp(reply->str, "true") == 0) {
-    freeReplyObject(reply);
-    return ALLOW;
-  }
-
-  reply = redisCommand(context, "GET %s:repsheet:blacklist", ip);
-  if (reply->str && strcmp(reply->str, "true") == 0) {
-    freeReplyObject(reply);
-    return BLOCK;
-  }
-
-  reply = redisCommand(context, "GET %s:repsheet", ip);
-  if (reply->str && strcmp(reply->str, "true") == 0) {
-    freeReplyObject(reply);
-    return config.action;
-  }
-
-  freeReplyObject(reply);
-  return ALLOW;
-}
-
-static int geoip_offender(redisContext *context, request_rec *r, const char *country)
-{
-  if (country == NULL) {
-    return ALLOW;
-  }
-
-  redisReply *reply;
-
-  reply = redisCommand(context, "SISMEMBER repsheet:countries %s", country);
-  if (reply && reply->integer == 1) {
-    freeReplyObject(reply);
-    return config.action;
-  }
-
-  freeReplyObject(reply);
-  return ALLOW;
-}
-
 static void record(redisContext *context, request_rec *r)
 {
   apr_time_exp_t start;
-  char           human_time[50];
-  char           value[256]; // TODO: potential overflow here
+  char           timestamp[50];
   char           *ip = remote_address(r);
 
   apr_time_exp_gmt(&start, r->request_time);
-  sprintf(human_time, "%d/%d/%d %d:%d:%d.%d", (start.tm_mon + 1), start.tm_mday, (1900 + start.tm_year), start.tm_hour, start.tm_min, start.tm_sec, start.tm_usec);
-  sprintf(value, "%s,%s,%s,%s,%s", human_time, apr_table_get(r->headers_in, "User-Agent"), r->method, r->uri, r->args);
+  sprintf(timestamp, "%d/%d/%d %d:%d:%d.%d", (start.tm_mon + 1), start.tm_mday, (1900 + start.tm_year), start.tm_hour, start.tm_min, start.tm_sec, start.tm_usec);
 
-  freeReplyObject(redisCommand(context, "LPUSH %s:requests %s", ip, value));
-  freeReplyObject(redisCommand(context, "LTRIM %s:requests 0 %d", ip, (config.redis_max_length - 1)));
+  repsheet_record(context, timestamp, apr_table_get(r->headers_in, "User-Agent"), r->method, r->uri, r->args, ip, config.redis_max_length);
 }
 
 static void process_waf_events(redisContext *context, request_rec *r, char *waf_events)
@@ -278,7 +227,7 @@ static int repsheet_recorder(request_rec *r)
     return DECLINED;
   }
 
-  int offender;
+  int action;
   redisContext *context;
 
   context = get_redis_context(r);
@@ -289,14 +238,19 @@ static int repsheet_recorder(request_rec *r)
 
   char *ip = remote_address(r);
 
-  offender = repsheet_offender(context, r);
-  if (offender) {
-    if (offender == BLOCK) {
+  action = repsheet_ip_lookup(context, ip);
+  if (action) {
+    if (action == BLOCK) {
       ap_log_error(APLOG_MARK, APLOG_ERR, 0, r->server, "%s %s was blocked by the repsheet", config.prefix, ip);
       return HTTP_FORBIDDEN;
-    } else {
-      ap_log_error(APLOG_MARK, APLOG_ERR, 0, r->server, "%s IP Address %s was found on the repsheet. No action taken", config.prefix, ip);
-      apr_table_set(r->headers_in, "X-Repsheet", "true");
+    } else if (action == NOTIFY) {
+      if (config.action == BLOCK) {
+        ap_log_error(APLOG_MARK, APLOG_ERR, 0, r->server, "%s %s was blocked by the repsheet", config.prefix, ip);
+        return HTTP_FORBIDDEN;
+      } else {
+        ap_log_error(APLOG_MARK, APLOG_ERR, 0, r->server, "%s IP Address %s was found on the repsheet. No action taken", config.prefix, ip);
+        apr_table_set(r->headers_in, "X-Repsheet", "true");
+      }
     }
   }
 
@@ -355,14 +309,19 @@ static int repsheet_geoip_filter(request_rec *r)
     return DECLINED;
   }
 
-  action = geoip_offender(context, r, country);
+  action = repsheet_geoip_lookup(context, country);
   if (action) {
     if (action == BLOCK) {
       ap_log_error(APLOG_MARK, APLOG_ERR, 0, r->server, "%s %s was blocked by the repsheet", config.prefix, ip);
       return HTTP_FORBIDDEN;
-    } else {
-      ap_log_error(APLOG_MARK, APLOG_ERR, 0, r->server, "%s IP Address %s was on the geoip suspicious country list. No action taken", config.prefix, ip);
-      apr_table_set(r->headers_in, "X-Repsheet", "true");
+    } else if (action == NOTIFY) {
+      if (config.action == BLOCK) {
+        ap_log_error(APLOG_MARK, APLOG_ERR, 0, r->server, "%s %s was blocked by the repsheet", config.prefix, ip);
+        return HTTP_FORBIDDEN;
+      } else {
+        ap_log_error(APLOG_MARK, APLOG_ERR, 0, r->server, "%s IP Address %s was on the geoip suspicious country list. No action taken", config.prefix, ip);
+        apr_table_set(r->headers_in, "X-Repsheet", "true");
+      }
     }
 
     freeReplyObject(redisCommand(context, "SET  %s:repsheet true", ip, 1));
