@@ -107,6 +107,26 @@ START_TEST(repsheet_ip_lookup_returns_block_when_on_the_blacklist)
 }
 END_TEST
 
+START_TEST(repsheet_geoip_lookup_returns_allow_when_country_is_null);
+{
+  ck_assert_int_eq(repsheet_geoip_lookup(context, NULL), ALLOW);
+}
+END_TEST
+
+START_TEST(repsheet_geoip_lookup_returns_allow_when_country_is_not_on_the_countries_list)
+{
+  ck_assert_int_eq(repsheet_geoip_lookup(context, "US"), ALLOW);
+}
+END_TEST
+
+START_TEST(repsheet_geoip_lookup_returns_notify_when_country_is_on_the_countries_list)
+{
+  freeReplyObject(redisCommand(context, "SADD repsheet:countries US"));
+
+  ck_assert_int_eq(repsheet_geoip_lookup(context, "US"), NOTIFY);
+}
+END_TEST
+
 Suite *make_repsheet_suite(void) {
   Suite *suite = suite_create("librepsheet");
 
@@ -127,6 +147,13 @@ Suite *make_repsheet_suite(void) {
   tcase_add_test(tc_ip_lookup, repsheet_ip_lookup_returns_notify_when_on_the_repsheet);
   tcase_add_test(tc_ip_lookup, repsheet_ip_lookup_returns_block_when_on_the_blacklist);
   suite_add_tcase(suite, tc_ip_lookup);
+
+  TCase *tc_geoip_lookup = tcase_create("repsheet_geoip_lookup");
+  tcase_add_checked_fixture(tc_geoip_lookup, setup, teardown);
+  tcase_add_test(tc_geoip_lookup, repsheet_geoip_lookup_returns_allow_when_country_is_null);
+  tcase_add_test(tc_geoip_lookup, repsheet_geoip_lookup_returns_allow_when_country_is_not_on_the_countries_list);
+  tcase_add_test(tc_geoip_lookup, repsheet_geoip_lookup_returns_notify_when_country_is_on_the_countries_list);
+  suite_add_tcase(suite, tc_geoip_lookup);
 
   return suite;
 }

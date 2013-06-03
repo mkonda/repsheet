@@ -292,7 +292,7 @@ static int repsheet_geoip_filter(request_rec *r)
     return DECLINED;
   }
 
-  redisContext *context = get_redis_context(r);;
+  redisContext *context = get_redis_context(r);
 
   if (context == NULL) {
     return DECLINED;
