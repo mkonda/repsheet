@@ -66,9 +66,11 @@ ln -s /Applications/Xcode.app/Contents/Developer/Toolchains/XcodeDefault.xctoolc
 
 #### Installation
 
-Compilation is done via `apxs`. This is one of the simpler ways to deal with compilation/installation/activation of a module. The process is wrapped in a Makefile though to ease the process
+Compilation is done via `apxs`. This is one of the simpler ways to deal with compilation/installation/activation of a module. Repsheet uses autotools to generate `configure` scripts and make files. If you want to build from source you will need to have the [check](http://check.sourceforge.net/) library installed as well as the dependencies listed above.
 
 ```
+autogen.sh
+./configure
 make
 sudo make install
 ```
@@ -109,14 +111,23 @@ Here's a complete example:
 
 In order to take full advantage of Repsheet, you need to have the proper ModSecurity rules setup. This repository packages a working set of rules as an example. They are the  [OWASP Core Rules](https://github.com/SpiderLabs/owasp-modsecurity-crs) base rules plus the optional rule set that perfoms header tagging. You can and should tune these rules so that they work properly for your enviornment, but remember to have the header tagging rules in place or Repsheet will not be able to see what ModSecurity has alerted on.
 
+## Running the Unit Tests
+
+Repsheet has a set of C based unit tests for the core logic. You can run them with `make check` after you have setup your build environment as described above.
+
+
 ## Running the Integration Tests
 
 Repsheet comes with a basic set of integration tests to ensure that things are working. In order to run these, run the following
 
 ```sh
-make install_local
+script/bootstrap
+autogen.sh
+configure
+make
+build/bin/apxs -i -a src/mod_security.la
 bundle install
 rake
 ```
 
-The `make install_local` task will take some time. It downloads and compiles Apache and ModSecurity, and then compiles and installs Repsheet and configures everything to work together. Running `rake` launches some curl based tests that hit the site and exercise Repsheet, then test that everything was recorded properly in Redis.
+The `script/bootstrap` task will take some time. It downloads and compiles Apache and ModSecurity, and then compiles and installs Repsheet and configures everything to work together. Running `rake` launches some curl based tests that hit the site and exercise Repsheet, then test that everything was recorded properly in Redis.
