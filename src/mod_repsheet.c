@@ -223,21 +223,19 @@ static void process_waf_events(redisContext *context, request_rec *r, char *waf_
   }
 }
 
-static int repsheet_recorder(request_rec *r)
+static char *repsheet_lookup(request_rec *r)
 {
-  if (!config.repsheet_enabled || !ap_is_initial_req(r)) {
+  if (!config.repsheet_enabled) {
     return DECLINED;
   }
 
-  int action;
-  redisContext *context;
-
-  context = get_redis_context(r);
+  redisContext *context = get_redis_context(r);
 
   if (context == NULL) {
     return DECLINED;
   }
 
+  int action;
   char *ip = remote_address(r);
 
   action = repsheet_ip_lookup(context, ip);
@@ -256,9 +254,26 @@ static int repsheet_recorder(request_rec *r)
     }
   }
 
-  if (config.recorder_enabled || !ap_is_initial_req(r)) {
-    record(context, r);
+  redisFree(context);
+
+  return DECLINED;
+}
+
+static int repsheet_recorder(request_rec *r)
+{
+  if (!config.repsheet_enabled || !config.recorder_enabled || !ap_is_initial_req(r)) {
+    return DECLINED;
   }
+
+  redisContext *context = get_redis_context(r);
+
+  if (context == NULL) {
+    return DECLINED;
+  }
+
+  char *ip = remote_address(r);
+
+  record(context, r);
 
   redisFree(context);
 
@@ -336,6 +351,7 @@ static int repsheet_mod_security_filter(request_rec *r)
 
 static void register_hooks(apr_pool_t *pool)
 {
+  ap_hook_post_read_request(repsheet_lookup, NULL, NULL, APR_HOOK_LAST);
   ap_hook_post_read_request(repsheet_recorder, NULL, NULL, APR_HOOK_LAST);
   ap_hook_post_read_request(repsheet_geoip_filter, NULL, NULL, APR_HOOK_LAST);
   ap_hook_fixups(repsheet_mod_security_filter, NULL, NULL, APR_HOOK_REALLY_LAST);
