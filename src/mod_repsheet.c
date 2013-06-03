@@ -223,7 +223,7 @@ static void process_waf_events(redisContext *context, request_rec *r, char *waf_
   }
 }
 
-static char *repsheet_lookup(request_rec *r)
+static int repsheet_lookup(request_rec *r)
 {
   if (!config.repsheet_enabled) {
     return DECLINED;
