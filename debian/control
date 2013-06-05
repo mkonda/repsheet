@@ -1,0 +1,13 @@
+Source: libapache2-mod-repsheet
+Section: httpd
+Priority: optional
+Maintainer: Aaron Bedra <aaron.bedra@getbraintree.com>
+Build-Depends: debhelper (>> 8), apache2-threaded-dev|apache2-prefork-dev, libhiredis-dev, libpcre3-dev
+Standards-Version: 3.9.1
+
+Package: libapache2-mod-repsheet
+Architecture: any
+Depends: apache2.2-common, libhiredis0.10, ${shlibs:Depends}, ${misc:Depends}
+Description: Reputational Intelligence engine for Apache
+ This is an Apache 2 module that functions as an intrusion
+ detection/prevention engine
