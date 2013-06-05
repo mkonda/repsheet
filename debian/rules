@@ -13,7 +13,7 @@ clean:
 	dh_testdir
 	dh_testroot
 	rm -f build-stamp
-	rm -f mod_repsheet.la mod_repsheet.lo mod_repsheet.slo mod_modrepsheet.o
+	rm -f src/mod_repsheet.la src/mod_repsheet.lo src/mod_repsheet.slo src/mod_modrepsheet.o
 	rm -rf .libs
 	dh_clean
 

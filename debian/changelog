@@ -1,3 +1,9 @@
+libapache2-mod-repsheet (0.2-2) unstable-security; urgency=low
+
+  * Fixes install directory package issue
+
+ -- Aaron Bedra <aaron.bedra@braintreepayments.com>  Wed, 05 Jun 2013 21:24:39 +0000
+
 libapache2-mod-repsheet (0.2-1) unstable-security; urgency=low
 
   * Updating packaging to reflect new autotools project structure

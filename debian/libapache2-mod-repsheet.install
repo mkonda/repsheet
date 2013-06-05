@@ -1,3 +1,4 @@
 src/.libs/mod_repsheet.so usr/lib/apache2/modules
+src/.libs/mod_repsheet.so.0.0.0 usr/lib/apache2/modules
 debian/repsheet.load etc/apache2/mods-available
 debian/repsheet.conf etc/apache2/mods-available
