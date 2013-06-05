@@ -1,5 +1,11 @@
+libapache2-mod-repsheet (0.2-1) unstable-security; urgency=low
+
+  * Updating packaging to reflect new autotools project structure
+
+ -- Aaron Bedra <aaron.bedra@braintreepayments.com>  Wed, 05 Jun 2013 16:37:03 +0000
+
 libapache2-mod-repsheet (0.1-1) unstable-security; urgency=low
 
   * Initial release.
 
- -- Aaron Bedra <aaron.bedra@getbraintree.com>  Tue, 30 Apr 2013 19:18:45 +0000
+ -- Aaron Bedra <aaron.bedra@braintreepayments.com>  Tue, 30 Apr 2013 19:18:45 +0000

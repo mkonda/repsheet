@@ -45,3 +45,7 @@ test/test_runner
 test/*.o
 test/*.trs
 test/test_runner.log
+build-stamp
+debian/libapache2-mod-repsheet.debhelper.log
+debian/libapache2-mod-repsheet.substvars
+debian/libapache2-mod-repsheet

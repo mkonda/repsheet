@@ -5,7 +5,8 @@
 build: build-stamp
 build-stamp:
 	dh_testdir
-	apxs2 -c -lhiredis mod_repsheet.c
+	./configure
+	make
 	touch build-stamp
 
 clean:
