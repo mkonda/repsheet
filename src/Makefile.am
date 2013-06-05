@@ -6,5 +6,4 @@ AM_CFLAGS = `apr-1-config --cflags`
 AM_CPPFLAGS = -I@APACHE_INCLUDE_DIR@ `apr-1-config --cppflags --includes`
 
 install:
-	cp @HTTPD_CONF@ /tmp/httpd.conf.bak
 	@APXS@ -i -a mod_repsheet.la
