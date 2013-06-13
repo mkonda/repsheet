@@ -45,7 +45,7 @@ int repsheet_geoip_lookup(redisContext *context, const char *country)
   return ALLOW;
 }
 
-void repsheet_record(redisContext *context, char *timestamp, const char *user_agent, const char *http_method, char *uri, char *arguments, char *ip, int max_length)
+void repsheet_record(redisContext *context, char *timestamp, const char *user_agent, const char *http_method, char *uri, char *arguments, char *ip, int max_length, int expiry)
 {
   char *t, *ua, *method, *u, *args, *rec;
 
@@ -94,4 +94,7 @@ void repsheet_record(redisContext *context, char *timestamp, const char *user_ag
 
   freeReplyObject(redisCommand(context, "LPUSH %s:requests %s", ip, rec));
   freeReplyObject(redisCommand(context, "LTRIM %s:requests 0 %d", ip, (max_length - 1)));
+  if (expiry > 0) {
+    freeReplyObject(redisCommand(context, "EXPIRE %s:requests %d", ip, expiry));
+  }
 }

@@ -41,6 +41,7 @@ typedef struct {
   int redis_port;
   int redis_timeout;
   int redis_max_length;
+  int redis_expiry;
 } repsheet_config;
 static repsheet_config config;
 
@@ -118,6 +119,12 @@ const char *repsheet_set_length(cmd_parms *cmd, void *cfg, const char *arg)
   return NULL;
 }
 
+const char *repsheet_set_expiry(cmd_parms *cmd, void *cfg, const char *arg)
+{
+  config.redis_expiry = atoi(arg) * 60 * 60;
+  return NULL;
+}
+
 const char *repsheet_set_prefix(cmd_parms *cmd, void *cfg, const char *arg)
 {
   config.prefix = arg;
@@ -149,6 +156,7 @@ static const command_rec repsheet_directives[] =
     AP_INIT_TAKE1("repsheetRedisHost",       repsheet_set_host,                  NULL, RSRC_CONF, "Set the Redis host"),
     AP_INIT_TAKE1("repsheetRedisPort",       repsheet_set_port,                  NULL, RSRC_CONF, "Set the Redis port"),
     AP_INIT_TAKE1("repsheetRedisMaxLength",  repsheet_set_length,                NULL, RSRC_CONF, "Last n requests kept per IP"),
+    AP_INIT_TAKE1("repsheetRedisExpiry",     repsheet_set_expiry,                NULL, RSRC_CONF, "Number of hours before records expire"),
     { NULL }
   };
 
@@ -195,7 +203,7 @@ static void record(redisContext *context, request_rec *r)
   apr_time_exp_gmt(&start, r->request_time);
   sprintf(timestamp, "%d/%d/%d %d:%d:%d.%d", (start.tm_mon + 1), start.tm_mday, (1900 + start.tm_year), start.tm_hour, start.tm_min, start.tm_sec, start.tm_usec);
 
-  repsheet_record(context, timestamp, apr_table_get(r->headers_in, "User-Agent"), r->method, r->uri, r->args, ip, config.redis_max_length);
+  repsheet_record(context, timestamp, apr_table_get(r->headers_in, "User-Agent"), r->method, r->uri, r->args, ip, config.redis_max_length, config.redis_expiry);
 }
 
 static void process_waf_events(redisContext *context, request_rec *r, char *waf_events)
@@ -205,7 +213,7 @@ static void process_waf_events(redisContext *context, request_rec *r, char *waf_
 
   m = matches(waf_events);
 
-  if (matches > 0) {
+  if (m > 0) {
     events = malloc(m * sizeof(char*));
     for(i = 0; i < m; i++) {
       events[i] = malloc(i * sizeof(char));
@@ -219,7 +227,11 @@ static void process_waf_events(redisContext *context, request_rec *r, char *waf_
       freeReplyObject(redisCommand(context, "SADD %s:detected %s", ip, events[i]));
       freeReplyObject(redisCommand(context, "INCR %s:%s:count", ip, events[i]));
       freeReplyObject(redisCommand(context, "SET  %s:repsheet true", ip));
+      if (config.redis_expiry > 0) {
+	freeReplyObject(redisCommand(context, "EXPIRE %s:repsheet %d", ip, config.redis_expiry));
+      }
     }
+    free(events);
   }
 }
 
@@ -271,8 +283,6 @@ static int repsheet_recorder(request_rec *r)
     return DECLINED;
   }
 
-  char *ip = remote_address(r);
-
   record(context, r);
 
   redisFree(context);
@@ -317,10 +327,14 @@ static int repsheet_geoip_filter(request_rec *r)
       }
     }
 
-    freeReplyObject(redisCommand(context, "SET  %s:repsheet true", ip, 1));
+    freeReplyObject(redisCommand(context, "SET %s:repsheet true", ip));
+    if (config.redis_expiry > 0) {
+      freeReplyObject(redisCommand(context, "EXPIRE %s:repsheet %d", ip, config.redis_expiry));
+    }
   }
 
   redisFree(context);
+
   return DECLINED;
 }
 

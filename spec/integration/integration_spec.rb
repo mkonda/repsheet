@@ -67,6 +67,14 @@ describe "Integration Specs" do
 
       @redis.llen("1.1.1.1:requests").should == 1
     end
+
+    it "Properly sets the expiry" do
+      http = Curl.get("http://127.0.0.1:8888") do |http|
+        http.headers['X-Forwarded-For'] = '1.1.1.1'
+      end
+
+      @redis.ttl("1.1.1.1:requests").should > 1
+    end
   end
 
   describe "ModSecurity Integration" do

@@ -45,7 +45,7 @@ void process_mod_security_headers(char *waf_events, char *events[])
   int match, error_offset;
   int ovector[100];
 
-  char *prev_event;
+  char *prev_event = NULL;
 
   const char *event;
   const char *error;
