@@ -1,3 +1,9 @@
+libapache2-mod-repsheet (0.3-1) unstable-security; urgency=low
+
+  * Adding configurable record and repsheet key expiry
+
+ -- Aaron Bedra <aaron.bedra@braintreepayments.com>  Thu, 13 Jun 2013 18:14:18 +0000
+
 libapache2-mod-repsheet (0.2-2) unstable-security; urgency=low
 
   * Fixes install directory package issue
