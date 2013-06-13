@@ -231,6 +231,7 @@ static void process_waf_events(redisContext *context, request_rec *r, char *waf_
 	freeReplyObject(redisCommand(context, "EXPIRE %s:repsheet %d", ip, config.redis_expiry));
       }
     }
+    free(events);
   }
 }
 
@@ -281,8 +282,6 @@ static int repsheet_recorder(request_rec *r)
   if (context == NULL) {
     return DECLINED;
   }
-
-  char *ip = remote_address(r);
 
   record(context, r);
 
