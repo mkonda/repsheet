@@ -84,7 +84,7 @@ START_TEST(properly_sets_expiry_on_records)
   repsheet_record(context, NULL, NULL, NULL, NULL, NULL, "1.1.1.1", REDIS_MAX_LENGTH, TTL);
 
   reply = redisCommand(context, "TTL 1.1.1.1:requests");
-  ck_assert_int_gt(reply->integer, 0);
+  ck_assert(reply->integer > 0);
 }
 END_TEST
 
