@@ -28,6 +28,8 @@
 #include "mod_security.h"
 #include "repsheet.h"
 
+#define REPSHEET_VERSION "0.4"
+
 typedef struct {
   int repsheet_enabled;
   int recorder_enabled;
@@ -363,8 +365,14 @@ static int repsheet_mod_security_filter(request_rec *r)
   return DECLINED;
 }
 
+static int hook_post_config(apr_pool_t *mp, apr_pool_t *mp_log, apr_pool_t *mp_temp, server_rec *s) {
+  ap_log_error(APLOG_MARK, APLOG_NOTICE | APLOG_NOERRNO, 0, s, "Repsheet Version %s Enabled", REPSHEET_VERSION);
+  return OK;
+}
+
 static void register_hooks(apr_pool_t *pool)
 {
+  ap_hook_post_config(hook_post_config, NULL, NULL, APR_HOOK_REALLY_LAST);
   ap_hook_post_read_request(repsheet_lookup, NULL, NULL, APR_HOOK_LAST);
   ap_hook_post_read_request(repsheet_recorder, NULL, NULL, APR_HOOK_LAST);
   ap_hook_post_read_request(repsheet_geoip_filter, NULL, NULL, APR_HOOK_LAST);

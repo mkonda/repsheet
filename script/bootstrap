@@ -96,6 +96,7 @@ LoadModule security2_module modules/mod_security2.so
   RepsheetRedisHost localhost
   RepsheetRedisPort 6379
   RepsheetRedisMaxLength 2
+  RepsheetRedisExpiry 24
 </IfModule>
 EOF
     printf " $GREEN [Complete] $RESET\n"

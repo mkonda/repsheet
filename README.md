@@ -88,6 +88,7 @@ To activate and configure repsheet you will need to set some directives. The fol
 * `RepsheetRedisHost <host>` - Sets the host for the Redis connection
 * `RepsheetRedisTimeout <port>` - Sets the port for the Redis connection
 * `RepsheetRedisMaxLength <max>` - Number of recorded requests a single IP can have before it is trimmed in Redis
+* `RepsheetRedisExpiry <hours>` - Number of hours of inactivity before an entry expires
 
 Here's a complete example:
 
@@ -104,6 +105,7 @@ Here's a complete example:
   RepsheetRedisHost localhost
   RepsheetRedisPort 6379
   RepsheetRedisMaxLength 1000
+  RepsheetRedisExpiry 24
 </IfModule>
 ```
 
