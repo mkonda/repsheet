@@ -69,11 +69,13 @@ describe "Integration Specs" do
     end
 
     it "Properly sets the expiry" do
-      http = Curl.get("http://127.0.0.1:8888") do |http|
+      http = Curl.get("http://127.0.0.1:8888?../../") do |http|
         http.headers['X-Forwarded-For'] = '1.1.1.1'
       end
 
       @redis.ttl("1.1.1.1:requests").should > 1
+      @redis.ttl("1.1.1.1:detected").should > 1
+      @redis.ttl("1.1.1.1:950103:count").should > 1
     end
   end
 

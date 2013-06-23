@@ -230,7 +230,9 @@ static void process_waf_events(redisContext *context, request_rec *r, char *waf_
       freeReplyObject(redisCommand(context, "INCR %s:%s:count", ip, events[i]));
       freeReplyObject(redisCommand(context, "SET  %s:repsheet true", ip));
       if (config.redis_expiry > 0) {
-	freeReplyObject(redisCommand(context, "EXPIRE %s:repsheet %d", ip, config.redis_expiry));
+        freeReplyObject(redisCommand(context, "EXPIRE %s:detected %d", ip, config.redis_expiry));
+        freeReplyObject(redisCommand(context, "EXPIRE %s:%s:count %d", ip, events[i], config.redis_expiry));
+        freeReplyObject(redisCommand(context, "EXPIRE %s:repsheet %d", ip, config.redis_expiry));
       }
     }
     free(events);
