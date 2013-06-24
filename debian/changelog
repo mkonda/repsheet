@@ -1,3 +1,9 @@
+libapache2-mod-repsheet (0.5-1) unstable-security; urgency=low
+
+  * Fixes issue #20 (Expire all keys when setting expiry)
+
+ -- Aaron Bedra <aaron.bedra@braintreepayments.com>  Mon, 24 Jun 2013 14:07:30 +0000
+
 libapache2-mod-repsheet (0.4-1) unstable-security; urgency=low
 
   * Adding version number to logs on startup
