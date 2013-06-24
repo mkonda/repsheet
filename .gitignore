@@ -49,3 +49,4 @@ build-stamp
 debian/libapache2-mod-repsheet.debhelper.log
 debian/libapache2-mod-repsheet.substvars
 debian/libapache2-mod-repsheet
+debian/files
