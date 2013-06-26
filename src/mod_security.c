@@ -52,7 +52,7 @@ void process_mod_security_headers(char *waf_events, char *events[])
 
   pcre *regex;
 
-  regex = pcre_compile("\\d{6}", PCRE_MULTILINE, &error, &error_offset, 0);
+  regex = pcre_compile("(?<!\\d)\\d{6}(?!\\d)", PCRE_MULTILINE, &error, &error_offset, 0);
 
   while (offset < strlen(waf_events) && (match = pcre_exec(regex, 0, waf_events, strlen(waf_events), offset, 0, ovector, sizeof(ovector))) >= 0) {
     for(i = 0; i < match; i++) {
