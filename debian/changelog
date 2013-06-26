@@ -1,4 +1,4 @@
-libapache2-mod-repsheet (0.6) unstable-security; urgency=low
+libapache2-mod-repsheet (0.6-1) unstable-security; urgency=low
 
   * Fix ModSecurity header parsing regex to be more restrictive
 
