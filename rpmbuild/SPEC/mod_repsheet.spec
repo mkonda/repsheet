@@ -1,6 +1,6 @@
 Summary: A reputation based intelligence engine for Apache
 Name: mod_repsheet
-Version: 0.4
+Version: 0.6
 Release: 1
 License: ASL 2.0
 Group: System Environment/Daemons
