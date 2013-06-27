@@ -41,6 +41,8 @@ rm -rf $RPM_BUILD_ROOT
 %config %{_sysconfdir}/httpd/conf.d/00_mod_repsheet.conf
 
 %changelog
+* Wed Jun 26 2013 Aaron Bedra <aaron@aaronbedra.com> - 0.6-1
+- Fixes for expiry and mod security header regex
 * Sat Jun 15 2013 Aaron Bedra <aaron@aaronbedra.com> - 0.4-1
 - Initial build.
 
