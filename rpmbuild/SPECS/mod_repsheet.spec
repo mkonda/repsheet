@@ -1,6 +1,6 @@
 Summary: A reputation based intelligence engine for Apache
 Name: mod_repsheet
-Version: 0.6
+Version: 0.7
 Release: 1
 License: ASL 2.0
 Group: System Environment/Daemons
@@ -41,8 +41,10 @@ rm -rf $RPM_BUILD_ROOT
 %config %{_sysconfdir}/httpd/conf.d/00_mod_repsheet.conf
 
 %changelog
+* Thu Jul 4 2013 Aaron Bedra <aaron@aaronbedra.com> - 0.7-1
+- Fixes for ModSecurity header parsing
 * Wed Jun 26 2013 Aaron Bedra <aaron@aaronbedra.com> - 0.6-1
-- Fixes for expiry and mod security header regex
+- Fixes for expiry and ModSecurity header regex
 * Sat Jun 15 2013 Aaron Bedra <aaron@aaronbedra.com> - 0.4-1
 - Initial build.
 
