@@ -16,7 +16,6 @@ namespace :services do
   task :stop do
     print "Shutting Down Services: "
     Rake::Task["apache:stop"].invoke
-    Rake::Task["redis:stop"].invoke
   end
 end
 
