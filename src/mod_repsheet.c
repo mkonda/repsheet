@@ -28,7 +28,7 @@
 #include "mod_security.h"
 #include "repsheet.h"
 
-#define REPSHEET_VERSION "0.7"
+#define REPSHEET_VERSION "0.8"
 
 typedef struct {
   int repsheet_enabled;
