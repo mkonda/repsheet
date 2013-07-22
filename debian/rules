@@ -5,6 +5,7 @@
 build: build-stamp
 build-stamp:
 	dh_testdir
+	./autogen.sh
 	./configure
 	make
 	touch build-stamp
