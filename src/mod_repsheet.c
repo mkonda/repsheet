@@ -28,7 +28,7 @@
 #include "mod_security.h"
 #include "repsheet.h"
 
-#define REPSHEET_VERSION "0.7"
+#define REPSHEET_VERSION "0.8"
 
 typedef struct {
   int repsheet_enabled;
@@ -226,12 +226,10 @@ static void process_waf_events(redisContext *context, request_rec *r, char *waf_
     char *ip = remote_address(r);
 
     for(i = 0; i < m; i++) {
-      freeReplyObject(redisCommand(context, "SADD %s:detected %s", ip, events[i]));
-      freeReplyObject(redisCommand(context, "INCR %s:%s:count", ip, events[i]));
-      freeReplyObject(redisCommand(context, "SET  %s:repsheet true", ip));
+      freeReplyObject(redisCommand(context, "ZINCRBY %s:detected 1 %s", ip, events[i]));
+      freeReplyObject(redisCommand(context, "SET %s:repsheet true", ip));
       if (config.redis_expiry > 0) {
         freeReplyObject(redisCommand(context, "EXPIRE %s:detected %d", ip, config.redis_expiry));
-        freeReplyObject(redisCommand(context, "EXPIRE %s:%s:count %d", ip, events[i], config.redis_expiry));
         freeReplyObject(redisCommand(context, "EXPIRE %s:repsheet %d", ip, config.redis_expiry));
       }
     }
@@ -344,7 +342,7 @@ static int repsheet_geoip_filter(request_rec *r)
 
 static int repsheet_mod_security_filter(request_rec *r)
 {
-  if (!config.repsheet_enabled || !config.filter_enabled) {
+  if (!config.repsheet_enabled || !config.filter_enabled || !ap_is_initial_req(r)) {
     return DECLINED;
   }
 
