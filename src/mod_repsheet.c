@@ -28,7 +28,7 @@
 #include "mod_security.h"
 #include "repsheet.h"
 
-#define REPSHEET_VERSION "0.8"
+#define REPSHEET_VERSION "0.9"
 
 typedef struct {
   int repsheet_enabled;
@@ -261,7 +261,7 @@ static int repsheet_lookup(request_rec *r)
     } else if (action == NOTIFY) {
       if (config.action == BLOCK) {
         ap_log_error(APLOG_MARK, APLOG_ERR, 0, r->server, "%s %s was blocked by the repsheet", config.prefix, ip);
-	redisFree(context);
+        redisFree(context);
         return HTTP_FORBIDDEN;
       } else {
         ap_log_error(APLOG_MARK, APLOG_ERR, 0, r->server, "%s IP Address %s was found on the repsheet. No action taken", config.prefix, ip);
