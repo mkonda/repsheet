@@ -1,3 +1,9 @@
+libapache2-mod-repsheet (0.9-1) unstable-security; urgency=low
+
+  * Fixes an issue where Repsheet held Redis connections open when blocking actors
+
+ -- Aaron Bedra <aaron.bedra@braintreepayments.com>  Wed, 24 Jul 2013 12:12:18 -0500
+
 libapache2-mod-repsheet (0.8-1) unstable-security; urgency=low
 
   * Store triggered rules in a sorted set
