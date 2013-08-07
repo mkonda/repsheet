@@ -31,58 +31,79 @@
 
 const char *repsheet_set_enabled(cmd_parms *cmd, void *cfg, const char *arg)
 {
-  if (!strcasecmp(arg, "on")) {
+  if (strcasecmp(arg, "on") == 0) {
     config.repsheet_enabled = 1;
-  } else {
+    return NULL;
+  } else if (strcasecmp(arg, "off") == 0) {
     config.repsheet_enabled = 0;
+    return NULL;
+  } else {
+    return "[ModRepsheet] - The RepsheetEnabled directive must be set to On or Off";
   }
-  return NULL;
 }
 
 const char *repsheet_set_recorder_enabled(cmd_parms *cmd, void *cfg, const char *arg)
 {
-  if (!strcasecmp(arg, "on")) {
+  if (strcasecmp(arg, "on") == 0) {
     config.recorder_enabled = 1;
-  } else {
+    return NULL;
+  } else if (strcasecmp(arg, "off") == 0) {
     config.recorder_enabled = 0;
+    return NULL;
+  } else {
+    return "[ModRepsheet] - The RepsheetRecorder directive must be set to On or Off";
   }
-  return NULL;
 }
 
 const char *repsheet_set_filter_enabled(cmd_parms *cmd, void *cfg, const char *arg)
 {
-  if (!strcasecmp(arg, "on")) {
+  if (strcasecmp(arg, "on") == 0) {
     config.filter_enabled = 1;
-  } else {
+    return NULL;
+  } else if (strcasecmp(arg, "off") == 0) {
     config.filter_enabled = 0;
+    return NULL;
+  } else {
+    return "[ModRepsheet] - The RepsheetFilter directive must be set to On or Off";
   }
-  return NULL;
 }
 
 const char *repsheet_set_geoip_enabled(cmd_parms *cmd, void *cfg, const char *arg)
 {
-  if (!strcasecmp(arg, "on")) {
+  if (strcasecmp(arg, "on") == 0) {
     config.geoip_enabled = 1;
-  } else {
+    return NULL;
+  } else if (strcasecmp(arg, "off") == 0) {
     config.geoip_enabled = 0;
+    return NULL;
+  } else {
+    return "[ModRepsheet] - The RepsheetGeoIP directive must be set to On or Off";
   }
-  return NULL;
 }
 
 const char *repsheet_set_proxy_headers_enabled(cmd_parms *cmd, void *cfg, const char *arg)
 {
-  if (!strcasecmp(arg, "on")) {
+  if (strcasecmp(arg, "on") == 0) {
     config.proxy_headers_enabled = 1;
-  } else {
+    return NULL;
+  } else if (strcasecmp(arg, "off") == 0) {
     config.proxy_headers_enabled = 0;
+    return NULL;
+  } else {
+    return "[ModRepsheet] - The RepsheetProxyHeaders directive must be set to On or Off";
   }
-  return NULL;
 }
 
 const char *repsheet_set_timeout(cmd_parms *cmd, void *cfg, const char *arg)
 {
-  config.redis_timeout = atoi(arg) * 1000;
-  return NULL;
+  int timeout = atoi(arg) * 1000;
+
+  if (timeout > 0) {
+    config.redis_timeout = timeout;
+    return NULL;
+  } else {
+    return "[ModRepsheet] - The RepsheetRedisTimeout directive must be a number";
+  }
 }
 
 const char *repsheet_set_host(cmd_parms *cmd, void *cfg, const char *arg)
@@ -93,14 +114,26 @@ const char *repsheet_set_host(cmd_parms *cmd, void *cfg, const char *arg)
 
 const char *repsheet_set_port(cmd_parms *cmd, void *cfg, const char *arg)
 {
-  config.redis_port = atoi(arg);
-  return NULL;
+  int port = atoi(arg);
+
+  if (port > 0) {
+    config.redis_port = port;
+    return NULL;
+  } else {
+    return "[ModRepsheet] - The RepsheetRedisPort directive must be a number";
+  }
 }
 
 const char *repsheet_set_length(cmd_parms *cmd, void *cfg, const char *arg)
 {
-  config.redis_max_length = atoi(arg);
-  return NULL;
+  int length = atoi(arg);
+
+  if (length > 0) {
+    config.redis_max_length = length;
+    return NULL;
+  } else {
+    return "[ModRepsheet] - The RepsheetRedisMaxLength directive must be a number";
+  }
 }
 
 const char *repsheet_set_expiry(cmd_parms *cmd, void *cfg, const char *arg)
@@ -117,14 +150,18 @@ const char *repsheet_set_prefix(cmd_parms *cmd, void *cfg, const char *arg)
 
 const char *repsheet_set_action(cmd_parms *cmd, void *cfg, const char *arg)
 {
-  if (strcmp(arg, "Notify") == 0) {
+  if (strcasecmp(arg, "notify") == 0) {
     config.action = NOTIFY;
-  } else if (strcmp(arg, "Block") == 0) {
+    return NULL;
+  } else if (strcasecmp(arg, "block") == 0) {
     config.action = BLOCK;
-  } else {
+    return NULL;
+  } else if (strcasecmp(arg, "allow") == 0) {
     config.action = ALLOW;
+    return NULL;
+  } else {
+    return "[ModRepsheet] - The RepsheetAction directive must be set to Block, Notify, or Allow";
   }
-  return NULL;
 }
 
 static const command_rec repsheet_directives[] =
