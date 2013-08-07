@@ -24,28 +24,10 @@
 
 #include "hiredis/hiredis.h"
 
+#include "mod_repsheet.h"
 #include "proxy.h"
 #include "mod_security.h"
 #include "repsheet.h"
-
-#define REPSHEET_VERSION "0.9"
-
-typedef struct {
-  int repsheet_enabled;
-  int recorder_enabled;
-  int filter_enabled;
-  int proxy_headers_enabled;
-  int geoip_enabled;
-  int action;
-  const char *prefix;
-
-  const char *redis_host;
-  int redis_port;
-  int redis_timeout;
-  int redis_max_length;
-  int redis_expiry;
-} repsheet_config;
-static repsheet_config config;
 
 const char *repsheet_set_enabled(cmd_parms *cmd, void *cfg, const char *arg)
 {
@@ -368,7 +350,18 @@ static int repsheet_mod_security_filter(request_rec *r)
 }
 
 static int hook_post_config(apr_pool_t *mp, apr_pool_t *mp_log, apr_pool_t *mp_temp, server_rec *s) {
-  ap_log_error(APLOG_MARK, APLOG_NOTICE | APLOG_NOERRNO, 0, s, "Repsheet Version %s Enabled", REPSHEET_VERSION);
+  void *init_flag = NULL;
+  int first_time = 0;
+
+  apr_pool_userdata_get(&init_flag, "mod_repsheet-init-flag", s->process->pool);
+
+  if (init_flag == NULL) {
+    first_time = 1;
+    apr_pool_userdata_set((const void *)1, "mod_repsheet-init-flag", apr_pool_cleanup_null, s->process->pool);
+    ap_log_error(APLOG_MARK, APLOG_NOTICE | APLOG_NOERRNO, 0, s, "ModRepsheet for Apache %s (%s) loaded", REPSHEET_VERSION, REPSHEET_URL);
+    return OK;
+  }
+
   return OK;
 }
 
