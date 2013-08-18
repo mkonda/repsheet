@@ -2,73 +2,69 @@
 #include <ngx_core.h>
 #include <ngx_http.h>
 
-static u_char ngx_repsheet_string[] = "Hello from Repsheet";
+#include "hiredis/hiredis.h"
+
+typedef struct {
+
+} ngx_http_repsheet_loc_conf_t;
+
+static redisContext *get_redis_context(ngx_http_request_t *r)
+{
+  redisContext *context;
+  struct timeval timeout = {0, 5000};
+
+  context = redisConnectWithTimeout("localhost", 6379, timeout);
+  if (context == NULL || context->err) {
+    if (context) {
+      ngx_log_error(NGX_LOG_ERR, r->connection->log, 0, "%s Redis Connection Error: %s", "[repsheet]", context->errstr);
+      redisFree(context);
+    } else {
+      ngx_log_error(NGX_LOG_ERR, r->connection->log, 0, "%s %s Connection Error: can't allocate redis context", "[repsheet]");
+    }
+    return NULL;
+  } else {
+    return context;
+  }
+}
 
 static ngx_int_t ngx_http_repsheet_handler(ngx_http_request_t *r)
 {
-  ngx_int_t    rc;
-  ngx_buf_t   *b;
-  ngx_chain_t  out;
- 
-  if (!(r->method & (NGX_HTTP_GET|NGX_HTTP_HEAD))) {
-    return NGX_HTTP_NOT_ALLOWED;
+  if (r->main->internal) {
+    return NGX_DECLINED;
   }
- 
-  rc = ngx_http_discard_request_body(r);
-  
-  if (rc != NGX_OK) {
-    return rc;
+
+  redisContext *context;
+  redisReply *reply;
+
+  context = get_redis_context(r);
+  if (context == NULL) {
+    return NGX_DECLINED;
   }
-  
-  r->headers_out.content_type_len = sizeof("text/html") - 1;
-  r->headers_out.content_type.len = sizeof("text/html") - 1;
-  r->headers_out.content_type.data = (u_char *) "text/html";
-  
-  if (r->method == NGX_HTTP_HEAD) {
-    r->headers_out.status = NGX_HTTP_OK;
-    r->headers_out.content_length_n = sizeof(ngx_repsheet_string) - 1;
-    
-    return ngx_http_send_header(r);
+
+  ngx_str_t address = r->connection->addr_text;
+
+  reply = redisCommand(context, "GET %s:repsheet:blacklist", address.data);
+  if (reply->str && strcmp(reply->str, "true") == 0) {
+    ngx_log_error(NGX_LOG_ERR, r->connection->log, 0, "%s %s was blocked by the repsheet", "[repsheet]", address.data);
+    freeReplyObject(reply);
+    redisFree(context);
+    return NGX_HTTP_FORBIDDEN;
   }
-  
-  b = ngx_pcalloc(r->pool, sizeof(ngx_buf_t));
-  if (b == NULL) {
-    return NGX_HTTP_INTERNAL_SERVER_ERROR;
-  }
-  
-  out.buf = b;
-  out.next = NULL;
-  
-  b->pos = ngx_repsheet_string;
-  b->last = ngx_repsheet_string + sizeof(ngx_repsheet_string) - 1;
-  b->memory = 1;
-  b->last_buf = 1;
-  
-  r->headers_out.status = NGX_HTTP_OK;
-  r->headers_out.content_length_n = sizeof(ngx_repsheet_string) - 1;
-  
-  rc = ngx_http_send_header(r);
-  
-  if (rc == NGX_ERROR || rc > NGX_OK || r->header_only) {
-    return rc;
-  }
-  
-  return ngx_http_output_filter(r, &out);
+
+  redisFree(context);
+
+  r->main->internal = 1;
+  return NGX_DECLINED;
 }
 
 static char *ngx_http_repsheet(ngx_conf_t *cf, ngx_command_t *cmd, void *conf)
 {
-  ngx_http_core_loc_conf_t *clcf;
-    
-  clcf = ngx_http_conf_get_module_loc_conf(cf, ngx_http_core_module);
-  clcf->handler = ngx_http_repsheet_handler;
-  
   return NGX_CONF_OK;
 }
 
 static ngx_command_t ngx_http_repsheet_commands[] = {
   {
-    ngx_string("repsheet_hello"),
+    ngx_string("enable_repsheet"),
     NGX_HTTP_LOC_CONF|NGX_CONF_NOARGS,
     ngx_http_repsheet,
     0,
@@ -79,9 +75,46 @@ static ngx_command_t ngx_http_repsheet_commands[] = {
   ngx_null_command
 };
 
+static ngx_int_t ngx_http_repsheet_init(ngx_conf_t *cf)
+{
+  ngx_http_handler_pt *h;
+  ngx_http_core_main_conf_t *cmcf;
+
+  cmcf = ngx_http_conf_get_module_main_conf(cf, ngx_http_core_module);
+
+  h = ngx_array_push(&cmcf->phases[NGX_HTTP_ACCESS_PHASE].handlers);
+  if (h == NULL) {
+    return NGX_ERROR;
+  }
+
+  *h = ngx_http_repsheet_handler;
+
+  return NGX_OK;
+}
+
+static void *ngx_http_repsheet_create_loc_conf(ngx_conf_t *cf)
+{
+  ngx_http_repsheet_loc_conf_t *conf;
+
+  conf = ngx_pcalloc(cf->pool, sizeof(ngx_http_repsheet_loc_conf_t));
+  if (conf == NULL) {
+    return NULL;
+  }
+
+  return conf;
+}
+
+static char* ngx_http_repsheet_merge_loc_conf(ngx_conf_t *cf, void *parent, void *child)
+{
+  ngx_http_repsheet_loc_conf_t *prev = parent;
+  ngx_http_repsheet_loc_conf_t *conf = child;
+
+  return NGX_CONF_OK;
+}
+
 static ngx_http_module_t ngx_http_repsheet_module_ctx = {
   NULL,                          /* preconfiguration */
-  NULL,                          /* postconfiguration */
+  ngx_http_repsheet_init,        /* postconfiguration */
 
   NULL,                          /* create main configuration */
   NULL,                          /* init main configuration */
@@ -89,8 +122,8 @@ static ngx_http_module_t ngx_http_repsheet_module_ctx = {
   NULL,                          /* create server configuration */
   NULL,                          /* merge server configuration */
 
-  NULL,                          /* create location configuration */
-  NULL                           /* merge location configuration */
+  ngx_http_repsheet_create_loc_conf, /* create location configuration */
+  ngx_http_repsheet_merge_loc_conf   /* merge location configuration */
 };
 
 ngx_module_t ngx_http_repsheet_module = {
